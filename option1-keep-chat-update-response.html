@@ -254,6 +254,12 @@
     .custom-icon { color: var(--weak); flex-shrink: 0; }
     .custom-icon svg { width: 15px; height: 15px; display: block; }
     .custom-placeholder { flex: 1; font-size: 15px; color: #b0b8c9; }
+    .custom-input {
+      flex: 1; border: none; outline: none; background: transparent;
+      font-family: var(--font); font-size: 15px; line-height: 21px;
+      color: var(--primary); padding: 0; min-width: 0;
+    }
+    .custom-input::placeholder { color: #b0b8c9; }
     .btn-skip {
       background: transparent; border: 1.5px solid var(--border);
       font-family: var(--font); font-size: 13px; font-weight: 600;
@@ -294,6 +300,12 @@
     .composer-send:hover { background: #2a6de8; }
     .composer-send svg { width: 14px; height: 14px; }
 
+    /* Disabled composer panel — visible but inactive while questionnaire is shown */
+    .composer-panel.disabled { opacity: .45; pointer-events: none; user-select: none; }
+    .composer-panel.disabled .composer-input,
+    .composer-panel.disabled .composer-send,
+    .composer-panel.disabled .composer-add { cursor: not-allowed; }
+
     /* Keyboard hint */
     .kbd-hint {
       font-size: 11px; color: var(--weak); opacity: .7;
@@ -304,7 +316,8 @@
 
     /* ── Summary card (in chat) ── */
     .summary-card {
-      margin: 0 auto 12px;
+      align-self: flex-end;
+      margin: 4px 16px 12px 0;
       max-width: 440px;
       width: calc(100% - 32px);
       background: #eef4fb;
@@ -703,21 +716,21 @@
         <div class="q-options" id="q-options"><!-- rendered by JS --></div>
         <div class="q-custom-row">
           <span class="custom-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></span>
-          <span class="custom-placeholder">Something else</span>
+          <input type="text" class="custom-input" id="custom-input" placeholder="Something else" oninput="handleCustomInput(event)" onkeydown="handleCustomKeydown(event)" />
           <button class="btn-skip" onclick="closeCard()">Skip</button>
         </div>
       </div>
     </div>
 
-    <!-- Composer -->
-    <div class="composer-panel">
-      <input class="composer-input" placeholder="Or reply directly…" type="text" />
+    <!-- Composer — disabled while questionnaire is shown; users type into "Something else" instead -->
+    <div class="composer-panel disabled" aria-disabled="true">
+      <input class="composer-input" placeholder="Or reply directly…" type="text" disabled tabindex="-1" />
       <div class="composer-toolbar">
-        <button class="composer-add">
+        <button class="composer-add" disabled tabindex="-1">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         </button>
         <div class="composer-spacer"></div>
-        <button class="composer-send">
+        <button class="composer-send" disabled tabindex="-1">
           Send
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
         </button>
@@ -730,7 +743,7 @@
       <div class="kbd-dot"></div>
       <span>Enter to select</span>
       <div class="kbd-dot"></div>
-      <span>or type below</span>
+      <span>or type your own</span>
     </div>
 
   </div>
@@ -768,6 +781,7 @@
 
   let current = 0;
   let answers  = [null, null, null]; // stores option index per question
+  let customAnswers = [null, null, null]; // stores typed "something else" text per question
   let focusedIdx = 0;
   let advancing = false; // debounce auto-advance
 
@@ -808,6 +822,12 @@
       container.appendChild(row);
     });
 
+    // Restore any previously typed "Something else" text for this question
+    const customInput = document.getElementById('custom-input');
+    if (customInput) {
+      customInput.value = customAnswers[current] || '';
+    }
+
     // Body enter animation (question transition)
     if (enterAnim) {
       const body = document.getElementById('q-body');
@@ -831,6 +851,7 @@
   function selectAnswer(idx) {
     if (advancing) return;
     answers[current] = idx;
+    customAnswers[current] = null; // picking an option clears any typed text
     focusedIdx = idx;
     renderQ(); // show selection highlight immediately
 
@@ -867,6 +888,54 @@
         body.classList.add('exiting');
         setTimeout(() => { advancing = false; showSummary(); }, 270);
       }, 350);
+    }
+  }
+
+  /* ── Custom "Something else" input handlers ── */
+  function handleCustomInput(e) {
+    const text = e.target.value;
+    customAnswers[current] = text.length > 0 ? text : null;
+    if (text.length > 0) {
+      // Typing clears any radio-style option pick for this question
+      answers[current] = null;
+      document.querySelectorAll('#q-options .q-option').forEach((row) => {
+        row.classList.remove('selected');
+        row.classList.remove('focused');
+      });
+    }
+  }
+
+  function handleCustomKeydown(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const text = e.target.value.trim();
+      if (!text) return; // nothing typed — Enter does nothing
+      customAnswers[current] = text;
+      answers[current] = null;
+      advanceFromCustom();
+    }
+  }
+
+  function advanceFromCustom() {
+    if (advancing) return;
+    advancing = true;
+    if (current < questions.length - 1) {
+      // Animate body out, advance to next question
+      const body = document.getElementById('q-body');
+      body.classList.remove('entering');
+      body.classList.add('exiting');
+      setTimeout(() => {
+        current++;
+        focusedIdx = answers[current] !== null ? answers[current] : 0;
+        advancing = false;
+        renderQ(true);
+      }, 270);
+    } else {
+      // Last question — exit body, then show summary
+      const body = document.getElementById('q-body');
+      body.classList.remove('entering');
+      body.classList.add('exiting');
+      setTimeout(() => { advancing = false; showSummary(); }, 270);
     }
   }
 
@@ -913,9 +982,16 @@
       summaryEl.className = 'summary-card';
       summaryEl.id = 'summary-card';
 
+      const escapeHTML = (s) => s.replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
       const itemsHTML = questions.map((q, i) => {
-        const ans = answers[i];
-        const ansText = ans !== null ? q.options[ans].desc : '<em>Skipped</em>';
+        let ansText;
+        if (customAnswers[i]) {
+          ansText = escapeHTML(customAnswers[i]);
+        } else if (answers[i] !== null) {
+          ansText = q.options[answers[i]].desc;
+        } else {
+          ansText = '<em>Skipped</em>';
+        }
         return `
           <div class="summary-item" onclick="editAnswerAt(${i})">
             <div class="summary-q">${q.text}</div>
@@ -933,7 +1009,7 @@
         <div class="summary-body">${itemsHTML}</div>
         <div class="summary-footer">
           <button class="btn-confirm-answers" onclick="confirmAnswers()">
-            <span>Looks good</span>
+            <span>View personalized course</span>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
           </button>
           <button class="btn-edit-answers" onclick="editAnswers()">Edit</button>
@@ -1020,6 +1096,8 @@
   /* ── Keyboard navigation ── */
   document.addEventListener('keydown', (e) => {
     if (!document.getElementById('q-card') || document.getElementById('bottom-zone').style.display === 'none') return;
+    // Don't intercept keys when the user is typing in the "Something else" input
+    if (e.target && e.target.classList && e.target.classList.contains('custom-input')) return;
     const q = questions[current];
     if (e.key === 'ArrowDown') { e.preventDefault(); focusedIdx = Math.min(focusedIdx + 1, q.options.length - 1); renderQ(false); }
     else if (e.key === 'ArrowUp') { e.preventDefault(); focusedIdx = Math.max(focusedIdx - 1, 0); renderQ(false); }
