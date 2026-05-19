@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Option 3 – In-Chat Card</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:ital,wght@0,300;0,400;0,600;0,700;1,400&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --color-primary:    #0F1114;
+      --color-content:    #1e2229;
+      --color-weak:       #5b6780;
+      --color-muted:      #636363;
+      --color-border:     #dae1ed;
+      --color-blue:       #3587fc;
+      --color-blue-bg:    #f0f6ff;
+      --color-neutral-bg: #f2f5fa;
+      --color-white:      #ffffff;
+      --color-green:      #12805c;
+      --color-green-bg:   #d3f1e3;
+      --font:             'Source Sans 3', sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body { height: 100%; overflow: hidden; }
+    body {
+      font-family: var(--font);
+      background: var(--color-white);
+      display: flex; flex-direction: column;
+    }
+
+    .shell {
+      flex: 1; width: 100%; height: 100%;
+      background: var(--color-white);
+      display: flex; flex-direction: column; overflow: hidden;
+      position: relative;
+    }
+
+    .page-body { flex: 1; display: flex; flex-direction: row; min-height: 0; overflow: hidden; }
+    .sidebar {
+      width: 44px; flex-shrink: 0;
+      border-right: 1px solid var(--color-border);
+      display: flex; flex-direction: column;
+      align-items: center; padding-top: 8px;
+      background: var(--color-white);
+    }
+    .sidebar-toggle {
+      width: 32px; height: 32px; border-radius: 6px; border: none;
+      background: transparent; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--color-weak); transition: background .15s;
+    }
+    .sidebar-toggle:hover { background: var(--color-neutral-bg); }
+    .sidebar-toggle svg { width: 18px; height: 18px; }
+    .content-area { flex: 1; display: flex; flex-direction: column; min-height: 0; overflow: hidden; position: relative; }
+
+    /* ── Coursera Navigation Bar ── */
+    .coursera-nav {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 16px; height: 48px;
+      border-bottom: 1px solid var(--color-border); flex-shrink: 0;
+      background: var(--color-white);
+    }
+    .coursera-nav-left { display: flex; align-items: center; gap: 8px; }
+    .coursera-wordmark { font-size: 18px; font-weight: 700; color: #0056D2; letter-spacing: -0.4px; }
+    .nav-partner-sep { color: #bcc5d6; font-size: 18px; font-weight: 300; margin: 0 2px; }
+    .google-wordmark { font-size: 16px; font-weight: 500; }
+    .coursera-nav-right { display: flex; align-items: center; gap: 2px; }
+    .nav-icon-btn {
+      width: 34px; height: 34px; border-radius: 8px; border: none;
+      background: transparent; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--color-weak); transition: background .15s;
+    }
+    .nav-icon-btn:hover { background: var(--color-neutral-bg); }
+    .nav-icon-btn svg { width: 18px; height: 18px; }
+    .user-avatar-btn {
+      width: 30px; height: 30px; border-radius: 50%;
+      background: #1e2229; color: white; border: none; cursor: pointer;
+      font-family: var(--font); font-size: 13px; font-weight: 600;
+      display: flex; align-items: center; justify-content: center;
+      margin-left: 4px;
+    }
+
+    /* ── Chat chrome ── */
+    .chat-area { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+
+    .chat-messages { flex: 1; padding: 24px 0 16px; display: flex; flex-direction: column; align-items: center; overflow-y: auto; }
+    .chat-inner { width: 660px; max-width: 100%; display: flex; flex-direction: column; }
+
+    /* ── Animated messages ── */
+    .msg { opacity: 0; transform: translateY(12px); }
+    .msg.show { animation: msgIn .35s ease forwards; }
+    @keyframes msgIn { to { opacity: 1; transform: translateY(0); } }
+
+    .typing-indicator { display: flex; align-items: center; gap: 6px; padding: 16px 16px 8px; }
+    .typing-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--color-weak); animation: bounce 1.2s infinite ease-in-out; }
+    .typing-dot:nth-child(2) { animation-delay: .2s; }
+    .typing-dot:nth-child(3) { animation-delay: .4s; }
+    @keyframes bounce { 0%,80%,100% { transform: scale(.7); opacity: .4; } 40% { transform: scale(1); opacity: 1; } }
+
+    .user-message { display: flex; justify-content: flex-end; padding: 0 16px 16px; }
+    .user-bubble { background: var(--color-blue-bg); padding: 8px 12px; border-radius: 8px 8px 0 8px; font-size: 16px; line-height: 24px; color: var(--color-primary); max-width: 480px; }
+    .ai-message { padding: 16px 16px; font-size: 16px; line-height: 24px; color: var(--color-content); }
+
+    /* ── Gradient loading placeholder ── */
+    .loading-placeholder {
+      margin: 0 16px 16px;
+      opacity: 0; transform: translateY(14px);
+      transition: opacity .4s ease, transform .4s ease;
+    }
+    .loading-placeholder.show { opacity: 1; transform: translateY(0); }
+    .loading-placeholder.hide { opacity: 0; transform: translateY(-4px); transition: opacity .3s ease, transform .3s ease; pointer-events: none; }
+    .loading-label { font-size: 13px; color: var(--color-weak); padding: 0 4px 8px; }
+    .loading-gradient {
+      width: 100%; height: 440px; border-radius: 16px;
+      background: linear-gradient(135deg, #f0c8b0 0%, #ddc0e8 25%, #b8c8f2 50%, #c8d8f8 65%, #e0b8d8 85%, #f0c8b0 100%);
+      background-size: 300% 300%;
+      animation: gradientPulse 3s ease infinite;
+    }
+    @keyframes gradientPulse {
+      0%   { background-position: 0% 50%; }
+      50%  { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    /* ══════════════════════════════════════════════
+       UNIFIED CARD — single container, three pages
+       side by side, slides horizontally on advance
+       ══════════════════════════════════════════════ */
+    .card-container {
+      margin: 0 16px 16px;
+      border: 1px solid var(--color-border);
+      border-radius: 16px;
+      overflow: hidden;
+      opacity: 0; transform: translateY(10px);
+      transition: opacity .45s ease, transform .45s ease;
+    }
+    .card-container.show { opacity: 1; transform: translateY(0); }
+
+    /* The horizontal track holding all three pages */
+    .card-track {
+      display: flex;
+      width: 300%;
+      transition: transform .52s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .card-track.at-quiz    { transform: translateX(-33.333%); }
+    .card-track.at-confirm { transform: translateX(-66.667%); }
+
+    /* Each page fills exactly one-third of the track = 100% of the card */
+    .card-page {
+      width: 33.333%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Shared hero (lavender top) ── */
+    .page-hero {
+      background: #f5f0fc;
+      padding: 24px 24px 28px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Decorative icon (top-right of hero) */
+    .hero-icon {
+      position: absolute; top: 18px; right: 20px;
+      width: 68px; height: 68px; pointer-events: none;
+    }
+
+    /* ── Intro page ── */
+    .intro-meta  { font-size: 13px; font-weight: 600; color: var(--color-weak); letter-spacing: .1px; margin-bottom: 10px; }
+    .intro-title { font-size: 28px; font-weight: 700; line-height: 34px; letter-spacing: -.2px; color: var(--color-primary); margin-bottom: 12px; max-width: 340px; }
+    .intro-desc  { font-size: 15px; line-height: 22px; color: var(--color-content); max-width: 380px; margin-bottom: 24px; }
+    .btn-take-quiz {
+      background: #1a6ef5; color: white; border: none;
+      font-family: var(--font); font-size: 16px; font-weight: 700;
+      padding: 12px 26px; border-radius: 10px; cursor: pointer;
+      transition: background .15s; display: inline-block;
+    }
+    .btn-take-quiz:hover { background: #1259d8; }
+
+    .intro-skills { background: var(--color-white); padding: 22px 24px 24px; flex: 1; }
+    .skills-label { font-size: 15px; font-weight: 600; color: var(--color-primary); margin-bottom: 14px; }
+    .skills-list  { list-style: none; display: flex; flex-direction: column; gap: 12px; }
+    .skills-list li {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 15px; line-height: 22px; color: var(--color-content);
+    }
+    .skills-list li::before {
+      content: ''; width: 6px; height: 6px; border-radius: 50%;
+      background: var(--color-weak); flex-shrink: 0;
+    }
+
+    /* ── Quiz page ── */
+    .quiz-meta {
+      font-size: 13px; font-weight: 600; color: var(--color-weak);
+      letter-spacing: .1px; margin-bottom: 12px;
+    }
+    .quiz-question {
+      font-size: 24px; font-weight: 700; line-height: 30px;
+      letter-spacing: -.15px; color: var(--color-primary);
+      max-width: 380px;
+    }
+
+    .quiz-options-wrap { background: var(--color-white); padding: 20px 24px; flex: 1; display: flex; flex-direction: column; gap: 10px; }
+    .quiz-opt {
+      border: 1.5px solid var(--color-border);
+      border-radius: 12px; padding: 14px 18px;
+      cursor: pointer; transition: border-color .12s, background .12s;
+      background: var(--color-white);
+    }
+    .quiz-opt:hover { border-color: #a8b8d0; background: var(--color-neutral-bg); }
+    .quiz-opt.selected { border-color: var(--color-green); background: var(--color-green-bg); }
+    .quiz-opt.selected .opt-label { color: var(--color-green); }
+    .quiz-opt.selected .opt-desc  { color: #3a9070; }
+    .opt-label { font-size: 16px; font-weight: 600; line-height: 22px; color: var(--color-primary); }
+    .opt-desc  { font-size: 14px; line-height: 20px; color: var(--color-weak); margin-top: 2px; }
+
+    .quiz-footer {
+      background: var(--color-white);
+      border-top: 1px solid var(--color-border);
+      padding: 14px 24px;
+      display: flex; align-items: center; justify-content: center; gap: 12px;
+    }
+    .nav-arrow {
+      width: 44px; height: 44px; border-radius: 12px;
+      border: 1.5px solid var(--color-border);
+      background: var(--color-white); cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--color-primary); transition: background .12s, border-color .12s;
+    }
+    .nav-arrow:hover { background: var(--color-neutral-bg); border-color: #b0bcd0; }
+    .nav-arrow:disabled { opacity: .3; cursor: default; pointer-events: none; }
+    .nav-arrow.primary { background: var(--color-primary); color: white; border-color: var(--color-primary); }
+    .nav-arrow.primary:hover { background: #2a2e35; }
+    .nav-arrow svg { width: 18px; height: 18px; }
+
+    /* ── Confirm page ── */
+    .confirm-body {
+      background: #e9eef8;
+      display: flex; flex-direction: column; align-items: center;
+      padding: 32px 32px 0; flex: 1;
+    }
+    .confirm-illustration { margin-bottom: 16px; display: block; }
+    .confirm-title {
+      font-size: 26px; font-weight: 700; line-height: 32px;
+      letter-spacing: -.15px; color: var(--color-primary);
+      text-align: center; margin-bottom: 6px;
+    }
+    .confirm-subtitle {
+      font-size: 15px; line-height: 22px; color: var(--color-content);
+      text-align: center; max-width: 360px; margin-bottom: 22px;
+    }
+    /* Plain rows — no card border, no background, no pointer */
+    .confirm-answers { width: 100%; }
+    .confirm-row {
+      padding: 13px 0;
+      border-bottom: 1px solid #d0d9ea;
+      cursor: default; user-select: none;
+    }
+    .confirm-row:last-child { border-bottom: none; }
+    .confirm-q { font-size: 14px; font-weight: 600; line-height: 20px; color: var(--color-primary); }
+    .confirm-a { font-size: 14px; line-height: 20px; color: var(--color-weak); margin-top: 2px; }
+
+    .confirm-footer {
+      width: 100%; background: #e9eef8;
+      padding: 22px 0 28px;
+      display: flex; align-items: center; justify-content: center; gap: 16px;
+    }
+    .btn-start-course {
+      background: #1a6ef5; color: white; border: none;
+      font-family: var(--font); font-size: 15px; font-weight: 700;
+      padding: 13px 28px; border-radius: 100px; cursor: pointer;
+      transition: background .15s; white-space: nowrap;
+    }
+    .btn-start-course:hover { background: #1259d8; }
+    .btn-edit-responses {
+      background: transparent; border: none;
+      font-family: var(--font); font-size: 15px; font-weight: 600;
+      color: var(--color-blue); cursor: pointer;
+      padding: 4px 0; transition: opacity .15s; white-space: nowrap;
+    }
+    .btn-edit-responses:hover { opacity: .75; }
+
+    /* ── Composer ── */
+    .composer-wrap { border-top: 1px solid var(--color-border); padding: 16px; display: flex; justify-content: center; flex-shrink: 0; }
+    .composer { width: 660px; max-width: 100%; background: var(--color-neutral-bg); border-radius: 8px; padding: 8px 12px; display: flex; align-items: center; gap: 8px; }
+    .composer-input { flex: 1; background: transparent; border: none; outline: none; font-family: var(--font); font-size: 16px; color: var(--color-primary); }
+    .composer-input::placeholder { color: var(--color-weak); }
+    .composer-btn { width: 32px; height: 32px; border-radius: 6px; border: none; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--color-weak); }
+    .composer-btn.primary { background: var(--color-blue); color: white; }
+    .composer-btn svg { width: 16px; height: 16px; }
+
+    .chat-area::-webkit-scrollbar { width: 6px; }
+    .chat-area::-webkit-scrollbar-thumb { background: #d0d7e5; border-radius: 3px; }
+
+    /* ═══════════════════════════════════════════════════
+       COURSE CHROME — applied across all diagnostic options
+       so each prototype lives inside the shared course
+       outline + learning environment shell.
+       ═══════════════════════════════════════════════════ */
+    html, body { background: #eef0f4; }
+    .shell { background: #eef0f4; }
+
+    .coursera-nav {
+      height: 56px;
+      background: #ffffff;
+      border-bottom: 1px solid #dae1ed;
+      padding: 0 16px;
+    }
+    .coursera-wordmark { font-size: 20px; letter-spacing: -.5px; }
+
+    .page-body {
+      padding: 16px;
+      gap: 16px;
+      background: #eef0f4;
+    }
+
+    .sidebar {
+      width: 268px;
+      flex-shrink: 0;
+      background: #ffffff;
+      border: 1px solid #dae1ed;
+      border-right: 1px solid #dae1ed;
+      border-radius: 16px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      padding-top: 0;
+    }
+    .sidebar-header {
+      padding: 20px 20px 12px;
+      border-bottom: 1px solid #dae1ed;
+    }
+    .sidebar-course-title {
+      font-size: 16px; font-weight: 600; line-height: 22px;
+      color: #0F1114; margin-bottom: 6px;
+      letter-spacing: -0.04px;
+    }
+    .sidebar-progress-link {
+      font-size: 14px; font-weight: 600; color: #0056D2;
+      text-decoration: none; cursor: pointer;
+    }
+    .sidebar-progress-link:hover { text-decoration: underline; }
+
+    .today-block {
+      margin: 12px 12px 0;
+      background: #ffffff;
+      border: 1px solid #dae1ed;
+      border-radius: 10px;
+      padding: 12px 14px;
+    }
+    .today-block-header {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 13px; font-weight: 600; color: #0F1114;
+      margin-bottom: 2px;
+    }
+    .today-block-dot { color: #5b6780; }
+    .today-block-time { font-weight: 600; }
+    .today-block-sub {
+      font-size: 12px; color: #5b6780; line-height: 16px;
+    }
+
+    .sidebar-list {
+      flex: 1; overflow-y: auto; padding: 12px 0 16px;
+    }
+    .sidebar-list::-webkit-scrollbar { width: 4px; }
+    .sidebar-list::-webkit-scrollbar-thumb { background: #dae1ed; border-radius: 2px; }
+
+    .course-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 20px;
+      cursor: pointer; transition: background .12s;
+      position: relative;
+    }
+    .course-item:hover { background: #f2f5fa; }
+    .course-item.active { background: #eaf1fc; }
+    .course-item.active::before {
+      content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+      width: 3px; background: #0056D2;
+    }
+    .ci-check {
+      width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .ci-check.done { background: #095941; }
+    .ci-check.done svg { color: white; width: 11px; height: 11px; }
+    .ci-check.pending { background: #e8eef7; }
+    .ci-check.active-circle {
+      background: transparent;
+      border: 2px solid #0056D2;
+      box-sizing: border-box;
+    }
+    .ci-info { flex: 1; min-width: 0; }
+    .ci-name { font-size: 13px; font-weight: 400; color: #0F1114; line-height: 18px; }
+    .ci-meta { font-size: 12px; color: #636363; }
+
+    .content-area {
+      background: #ffffff;
+      border: 1px solid #dae1ed;
+      border-radius: 16px;
+      overflow: hidden;
+    }
+
+    .learning-env-header {
+      padding: 18px 24px 14px;
+      border-bottom: 1px solid #dae1ed;
+      background: #ffffff;
+      flex-shrink: 0;
+    }
+    .learning-env-title {
+      font-size: 18px; font-weight: 600;
+      color: #0F1114;
+      letter-spacing: -0.1px;
+      line-height: 24px;
+      margin: 0;
+    }
+
+    /* ═══════════════════════════════════════════════════
+       COMPACT QUIZ CARD — shrink the in-chat diagnostic
+       card so the full card always sits above the chat
+       composer without scrolling. Constrains card width
+       and reduces padding/typography everywhere.
+       ═══════════════════════════════════════════════════ */
+
+    /* Slightly tighter chat padding */
+    .chat-messages { padding: 18px 0 12px; }
+    .chat-inner { width: 560px; max-width: 100%; }
+
+    /* The card itself: narrower, sits inline in the chat
+       flow and fades in like a normal chat message. */
+    .card-container {
+      margin: 0 16px 12px;
+      max-width: 520px;
+      width: calc(100% - 32px);
+      align-self: center;
+    }
+
+    /* Loading placeholder: identical size, shape and position
+       to the diagnostic quiz card so the transition between
+       loading → card feels like the same surface. */
+    .loading-placeholder {
+      margin: 0 16px 12px;
+      align-self: center;
+      max-width: 520px;
+      width: calc(100% - 32px);
+      border: 1px solid var(--color-border);
+      border-radius: 16px;
+      overflow: hidden;
+    }
+    .loading-label { display: none; }
+    .loading-gradient {
+      height: 264px;            /* matches compacted card height */
+      width: 100%;
+      border-radius: 0;         /* outer placeholder handles rounding */
+    }
+
+    /* ── Hero (top section of every page) ── */
+    .page-hero { padding: 14px 18px 14px; }
+    .hero-icon { width: 44px; height: 44px; top: 12px; right: 14px; }
+
+    /* ── Intro page ── */
+    .intro-meta  { font-size: 11px; margin-bottom: 4px; }
+    .intro-title { font-size: 18px; line-height: 24px; margin-bottom: 4px; max-width: 280px; }
+    .intro-desc  { font-size: 12px; line-height: 17px; margin-bottom: 10px; max-width: 320px; }
+    .btn-take-quiz { font-size: 13px; padding: 8px 16px; border-radius: 8px; }
+
+    .intro-skills { padding: 10px 18px 12px; }
+    .skills-label { font-size: 12px; margin-bottom: 6px; }
+    .skills-list  { gap: 4px; }
+    .skills-list li { font-size: 12px; line-height: 16px; gap: 8px; }
+    .skills-list li::before { width: 4px; height: 4px; }
+
+    /* ── Quiz page ── */
+    .quiz-meta     { font-size: 11px; margin-bottom: 4px; }
+    .quiz-question { font-size: 16px; line-height: 22px; max-width: 320px; }
+
+    .quiz-options-wrap { padding: 10px 18px; gap: 6px; }
+    .quiz-opt { padding: 8px 12px; border-radius: 10px; border-width: 1px; }
+    .opt-label { font-size: 13px; line-height: 18px; }
+    .opt-desc  { font-size: 11px; line-height: 15px; margin-top: 1px; }
+
+    .quiz-footer { padding: 8px 18px; gap: 10px; }
+    .nav-arrow { width: 32px; height: 32px; border-radius: 8px; }
+    .nav-arrow svg { width: 14px; height: 14px; }
+
+    /* ── Confirm page ── */
+    .confirm-body { padding: 14px 22px 0; }
+    .confirm-illustration { margin-bottom: 6px; width: 60px !important; height: 50px !important; }
+    .confirm-title { font-size: 16px; line-height: 22px; margin-bottom: 2px; }
+    .confirm-subtitle { font-size: 12px; line-height: 16px; margin-bottom: 8px; max-width: 280px; }
+    .confirm-row { padding: 6px 0; }
+    .confirm-q { font-size: 12px; line-height: 16px; }
+    .confirm-a { font-size: 11px; line-height: 15px; margin-top: 1px; }
+
+    .confirm-footer { padding: 10px 0 12px; gap: 10px; }
+    .btn-start-course { font-size: 13px; padding: 8px 18px; }
+    .btn-edit-responses { font-size: 13px; }
+  </style>
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- Coursera + Google Top Nav -->
+  <nav class="coursera-nav">
+    <div class="coursera-nav-left">
+      <span class="coursera-wordmark">coursera</span>
+      <span class="nav-partner-sep">|</span>
+      <span class="google-wordmark"><span style="color:#4285F4">G</span><span style="color:#EA4335">o</span><span style="color:#FBBC05">o</span><span style="color:#4285F4">g</span><span style="color:#34A853">l</span><span style="color:#EA4335">e</span></span>
+    </div>
+    <div class="coursera-nav-right">
+      <button class="nav-icon-btn" title="Help">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><circle cx="12" cy="17.5" r=".6" fill="currentColor"/></svg>
+      </button>
+      <button class="nav-icon-btn" title="Language">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+      </button>
+      <button class="nav-icon-btn" title="Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="8" cy="6" r="2" fill="white" stroke="currentColor" stroke-width="1.8"/><circle cx="16" cy="12" r="2" fill="white" stroke="currentColor" stroke-width="1.8"/><circle cx="10" cy="18" r="2" fill="white" stroke="currentColor" stroke-width="1.8"/></svg>
+      </button>
+      <button class="user-avatar-btn" title="Profile">N</button>
+    </div>
+  </nav>
+
+  <div class="page-body">
+
+    <!-- Course outline sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-course-title">SQL for Data Science (and Version Control with GitHub)</div>
+        <a class="sidebar-progress-link">Course progress</a>
+      </div>
+      <div class="today-block">
+        <div class="today-block-header">
+          Today's learning block
+          <span class="today-block-dot">•</span>
+          <span class="today-block-time">60 min</span>
+        </div>
+        <div class="today-block-sub">Diving deeper into databases and Jupyter Notebooks</div>
+      </div>
+      <div class="sidebar-list">
+        <div class="course-item">
+          <div class="ci-check done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
+          <div class="ci-info">
+            <div class="ci-name">Today's learning overview</div>
+            <div class="ci-meta">Video</div>
+          </div>
+        </div>
+        <div class="course-item">
+          <div class="ci-check done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
+          <div class="ci-info">
+            <div class="ci-name">Welcome to SQL for data science</div>
+            <div class="ci-meta">Video</div>
+          </div>
+        </div>
+        <div class="course-item">
+          <div class="ci-check done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
+          <div class="ci-info">
+            <div class="ci-name">SQL basics</div>
+            <div class="ci-meta">Reading</div>
+          </div>
+        </div>
+        <div class="course-item">
+          <div class="ci-check done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
+          <div class="ci-info">
+            <div class="ci-name">Indexing overview</div>
+            <div class="ci-meta">Video</div>
+          </div>
+        </div>
+        <div class="course-item">
+          <div class="ci-check done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
+          <div class="ci-info">
+            <div class="ci-name">Practice questions</div>
+            <div class="ci-meta">Reading</div>
+          </div>
+        </div>
+        <div class="course-item active">
+          <div class="ci-check active-circle"></div>
+          <div class="ci-info">
+            <div class="ci-name">Joins for multiple data sets</div>
+            <div class="ci-meta">Reading</div>
+          </div>
+        </div>
+        <div class="course-item">
+          <div class="ci-check pending"></div>
+          <div class="ci-info">
+            <div class="ci-name">Advanced data Assessment</div>
+            <div class="ci-meta">Reading</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="content-area">
+
+  <!-- Learning environment header -->
+  <div class="learning-env-header">
+    <h2 class="learning-env-title">Self-assessment</h2>
+  </div>
+
+  <div class="chat-area">
+    <div class="chat-messages">
+      <div class="chat-inner" id="chat-inner">
+
+        <div class="msg user-message" id="msg-user">
+          <div class="user-bubble">I'm a PM and I only care about professional workflows. I can write simple queries, so let's fast-track through the basics and spend more time on GitHub and AI tools.</div>
+        </div>
+
+        <div class="msg typing-indicator" id="msg-typing">
+          <div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>
+        </div>
+
+        <div class="msg ai-message" id="msg-ai" style="display:none;">
+          Great! Would you like to answer a few questions to tailor this course to the right level for you? It should only take about 2–3 minutes.
+        </div>
+
+        <!-- ── Gradient loading placeholder ── -->
+        <div class="loading-placeholder" id="loading-placeholder" style="display:none">
+          <div class="loading-label">Preparing your quiz…</div>
+          <div class="loading-gradient"></div>
+        </div>
+
+        <!-- ── Unified card ── -->
+        <div class="card-container" id="card-container" style="display:none">
+          <div class="card-track" id="card-track">
+
+            <!-- PAGE 1: Intro -->
+            <div class="card-page" id="page-intro">
+              <div class="page-hero">
+                <img class="hero-icon" src="Quiz icon.svg" alt="Quiz icon" />
+                <div class="intro-meta">Diagnostic Quiz · 5 min</div>
+                <div class="intro-title">Personalize your course</div>
+                <div class="intro-desc">Take 2 minutes to self-assess and we'll adjust the content and practice to your skill level.</div>
+                <button class="btn-take-quiz" onclick="startQuiz()">Take quiz</button>
+              </div>
+              <div class="intro-skills">
+                <div class="skills-label">Skills we'll ask about:</div>
+                <ul class="skills-list">
+                  <li>SQL basics (SELECT, WHERE, FROM)</li>
+                  <li>JOIN operations across tables</li>
+                  <li>GROUP BY and aggregate functions</li>
+                  <li>Filtering and sorting query results</li>
+                </ul>
+              </div>
+            </div>
+
+            <!-- PAGE 2: Quiz questions -->
+            <div class="card-page" id="page-quiz">
+              <div class="page-hero">
+                <img class="hero-icon" src="Quiz icon.svg" alt="Quiz icon" />
+                <div class="quiz-meta" id="quiz-meta">Diagnostic Quiz · 1 of 3</div>
+                <div class="quiz-question" id="quiz-question"></div>
+              </div>
+              <div class="quiz-options-wrap" id="quiz-options"></div>
+              <div class="quiz-footer">
+                <button class="nav-arrow" id="btn-prev" onclick="prevQ()">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+                </button>
+                <button class="nav-arrow primary" id="btn-next" onclick="nextQ()">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- PAGE 3: Confirmation -->
+            <div class="card-page" id="page-confirm">
+              <div class="confirm-body">
+                <img class="confirm-illustration" src="Tree.svg" alt="" style="object-fit:contain;" />
+
+                <div class="confirm-title">You're all done!</div>
+                <div class="confirm-subtitle">Review your responses and continue to personalize your course</div>
+                <div class="confirm-answers" id="confirm-answers"></div>
+              </div>
+              <div class="confirm-footer">
+                <button class="btn-start-course" onclick="goToCourse()">Start my personalized course</button>
+                <button class="btn-edit-responses" onclick="editResponses()">Edit responses</button>
+              </div>
+            </div>
+
+          </div><!-- /.card-track -->
+        </div><!-- /.card-container -->
+
+      </div>
+    </div>
+  </div>
+
+  <div class="composer-wrap">
+    <div class="composer">
+      <input class="composer-input" type="text" placeholder="Ask anything" />
+      <div style="display:flex;gap:6px;">
+        <button class="composer-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></button>
+        <button class="composer-btn primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg></button>
+      </div>
+    </div>
+  </div>
+    </div><!-- /.content-area -->
+  </div><!-- /.page-body -->
+
+</div>
+
+<script>
+  const questions = [
+    {
+      text: "Can you write a SELECT statement and filter results with WHERE?",
+      options: [
+        { label: "I'm new to this",   desc: "I'm still figuring out the basic syntax." },
+        { label: "I've seen this",    desc: "I can handle SELECT and WHERE, but a quick refresh wouldn't hurt." },
+        { label: "I know this well",  desc: "I'm a pro at basics. Skip the intro and let's get to work." }
+      ]
+    },
+    {
+      text: "Can you use JOIN to combine data from multiple tables?",
+      options: [
+        { label: "I'm new to this",   desc: "I haven't worked with JOINs before." },
+        { label: "I've seen this",    desc: "I've used basic JOINs but could use a refresher." },
+        { label: "I know this well",  desc: "I'm comfortable with INNER, LEFT, and other JOIN types." }
+      ]
+    },
+    {
+      text: "Can you use GROUP BY and aggregate functions like COUNT or SUM?",
+      options: [
+        { label: "I'm new to this",   desc: "Aggregation is new territory for me." },
+        { label: "I've seen this",    desc: "I've seen GROUP BY but don't use it confidently." },
+        { label: "I know this well",  desc: "I write aggregate queries regularly." }
+      ]
+    }
+  ];
+
+  let current = 0;
+  let answers = [null, null, null];
+
+  function scrollToBottom() {
+    const m = document.querySelector('.chat-messages');
+    m.scrollTo({ top: m.scrollHeight, behavior: 'smooth' });
+  }
+
+  function renderQ() {
+    const q = questions[current];
+    document.getElementById('quiz-meta').textContent     = `Diagnostic Quiz · ${current + 1} of ${questions.length}`;
+    document.getElementById('quiz-question').textContent = q.text;
+
+    const wrap = document.getElementById('quiz-options');
+    wrap.innerHTML = '';
+    q.options.forEach((opt, i) => {
+      const div = document.createElement('div');
+      div.className = 'quiz-opt' + (answers[current] === i ? ' selected' : '');
+      div.innerHTML = `<div class="opt-label">${opt.label}</div><div class="opt-desc">${opt.desc}</div>`;
+      div.onclick = () => { answers[current] = i; renderQ(); };
+      wrap.appendChild(div);
+    });
+
+    document.getElementById('btn-prev').disabled = current === 0;
+  }
+
+  function nextQ() {
+    if (current < questions.length - 1) {
+      current++;
+      renderQ();
+    } else {
+      // Last question → slide to confirm page
+      buildConfirm();
+      document.getElementById('card-track').classList.remove('at-quiz');
+      document.getElementById('card-track').classList.add('at-confirm');
+      setTimeout(scrollToBottom, 200);
+    }
+  }
+
+  function prevQ() {
+    if (current > 0) { current--; renderQ(); }
+  }
+
+  /* ── Build confirm page content from current answers ── */
+  function buildConfirm() {
+    const wrap = document.getElementById('confirm-answers');
+    wrap.innerHTML = '';
+    questions.forEach((q, i) => {
+      const a = answers[i];
+      const answerText = (a !== null) ? q.options[a].desc : '<em style="color:#999">Skipped</em>';
+      const row = document.createElement('div');
+      row.className = 'confirm-row';
+      row.innerHTML = `<div class="confirm-q">${q.text}</div><div class="confirm-a">${answerText}</div>`;
+      wrap.appendChild(row);
+    });
+  }
+
+  /* ── Navigate to course one-pager ── */
+  function goToCourse() {
+    const container = document.getElementById('card-container');
+    container.style.transition = 'opacity .4s ease, transform .4s ease';
+    container.style.opacity = '0';
+    container.style.transform = 'scale(.98)';
+    setTimeout(() => { window.location.href = 'course-one-pager.html'; }, 420);
+  }
+
+  /* ── Edit responses — slide back to Q1 ── */
+  function editResponses() {
+    current = 0;
+    renderQ();
+    const track = document.getElementById('card-track');
+    track.classList.remove('at-confirm');
+    track.classList.add('at-quiz');
+  }
+
+  /* ── Slide from intro to quiz page ── */
+  function startQuiz() {
+    renderQ();
+    document.getElementById('card-track').classList.add('at-quiz');
+  }
+
+  /* ── Intro sequence ── */
+  function runIntro() {
+    const loadingEl   = document.getElementById('loading-placeholder');
+    const containerEl = document.getElementById('card-container');
+
+    setTimeout(() => document.getElementById('msg-user').classList.add('show'), 700);
+    setTimeout(() => document.getElementById('msg-typing').classList.add('show'), 1400);
+
+    setTimeout(() => {
+      document.getElementById('msg-typing').style.display = 'none';
+      const ai = document.getElementById('msg-ai');
+      ai.style.display = 'block';
+      ai.classList.add('show');
+    }, 2700);
+
+    // Show gradient loading placeholder
+    setTimeout(() => {
+      loadingEl.style.display = '';
+      requestAnimationFrame(() => {
+        loadingEl.classList.add('show');
+        scrollToBottom();
+      });
+    }, 3300);
+
+    // Swap loading → intro card
+    setTimeout(() => {
+      loadingEl.classList.add('hide');
+      setTimeout(() => {
+        loadingEl.style.display = 'none';
+        containerEl.style.display = '';
+        requestAnimationFrame(() => {
+          containerEl.classList.add('show');
+          setTimeout(scrollToBottom, 120);
+        });
+      }, 320);
+    }, 5400);
+  }
+
+  /* Start only when the parent launcher sends 'start' (tab click / restore) */
+  let _introStarted = false;
+  window.addEventListener('message', (e) => {
+    if (e.data === 'start' && !_introStarted) {
+      _introStarted = true;
+      runIntro();
+    }
+  });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Option 1 – Keep Chat, Update Response Component</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --primary:      #0F1114;
+      --content:      #1e2229;
+      --weak:         #5b6780;
+      --muted:        #636363;
+      --border:       #dae1ed;
+      --border-kbd:   #c1cad9;
+      --blue:         #3587fc;
+      --blue-bg:      #f0f6ff;
+      --neutral:      #f2f5fa;
+      --row-hover:    #f5f6f8;
+      --row-selected: #f0f0f0;
+      --white:        #ffffff;
+      --font:         'Source Sans 3', sans-serif;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%; overflow: hidden;
+    }
+    body {
+      font-family: var(--font);
+      background: var(--white);
+      display: flex; flex-direction: column;
+    }
+
+    /* Shell */
+    .shell {
+      flex: 1; width: 100%; height: 100%;
+      background: var(--white);
+      display: flex; flex-direction: column;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Page layout */
+    .page-body { flex: 1; display: flex; flex-direction: row; min-height: 0; overflow: hidden; }
+    .sidebar {
+      width: 44px; flex-shrink: 0;
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      align-items: center; padding-top: 8px;
+      background: var(--white);
+    }
+    .sidebar-toggle {
+      width: 32px; height: 32px; border-radius: 6px; border: none;
+      background: transparent; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--weak); transition: background .15s;
+    }
+    .sidebar-toggle:hover { background: var(--neutral); }
+    .sidebar-toggle svg { width: 18px; height: 18px; }
+    .content-area { flex: 1; display: flex; flex-direction: column; min-height: 0; overflow: hidden; position: relative; }
+
+    /* ── Coursera Navigation Bar ── */
+    .coursera-nav {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 16px; height: 48px;
+      border-bottom: 1px solid var(--border); flex-shrink: 0;
+      background: var(--white);
+    }
+    .coursera-nav-left { display: flex; align-items: center; gap: 8px; }
+    .coursera-wordmark { font-size: 18px; font-weight: 700; color: #0056D2; letter-spacing: -0.4px; }
+    .nav-partner-sep { color: #bcc5d6; font-size: 18px; font-weight: 300; margin: 0 2px; }
+    .google-wordmark { font-size: 16px; font-weight: 500; }
+    .coursera-nav-right { display: flex; align-items: center; gap: 2px; }
+    .nav-icon-btn {
+      width: 34px; height: 34px; border-radius: 8px; border: none;
+      background: transparent; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--weak); transition: background .15s;
+    }
+    .nav-icon-btn:hover { background: var(--neutral); }
+    .nav-icon-btn svg { width: 18px; height: 18px; }
+    .user-avatar-btn {
+      width: 30px; height: 30px; border-radius: 50%;
+      background: #1e2229; color: white; border: none; cursor: pointer;
+      font-family: var(--font); font-size: 13px; font-weight: 600;
+      display: flex; align-items: center; justify-content: center;
+      margin-left: 4px;
+    }
+
+    /* Chat */
+    .chat-area { flex: 1; overflow-y: auto; display: flex; flex-direction: column; min-height: 0; }
+
+    .chat-scroll { flex: 1; padding: 32px 0 16px; display: flex; flex-direction: column; align-items: center; overflow-y: auto; transition: padding-bottom .4s ease; }
+    .chat-scroll.overlay-active { padding-bottom: 320px; }
+    .chat-inner { width: 640px; max-width: 100%; display: flex; flex-direction: column; gap: 4px; }
+
+    /* Messages — hidden initially, animated in */
+    .msg { opacity: 0; transform: translateY(12px); }
+    .msg.show { animation: msgIn .5s ease forwards; }
+    @keyframes msgIn { to { opacity: 1; transform: translateY(0); } }
+
+    /* Summary card gets a slower, more deliberate entrance */
+    .summary-card.show { animation: summaryIn .65s cubic-bezier(.22,.68,0,1) forwards; }
+    @keyframes summaryIn {
+      from { opacity: 0; transform: translateY(18px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .user-row { display: flex; justify-content: flex-end; padding: 4px 16px; }
+    .user-bubble {
+      background: var(--blue-bg); padding: 9px 13px;
+      border-radius: 8px 8px 0 8px; font-size: 16px; line-height: 24px;
+      color: var(--primary); max-width: 460px;
+    }
+    .ai-row { padding: 8px 16px; font-size: 16px; line-height: 24px; color: var(--content); }
+
+    /* Typing indicator */
+    .typing-indicator { display: flex; align-items: center; gap: 6px; padding: 8px 16px; opacity: 0; }
+    .typing-indicator.show { animation: msgIn .3s ease forwards; }
+    .typing-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--weak); animation: bounce 1.2s infinite ease-in-out;
+    }
+    .typing-dot:nth-child(2) { animation-delay: .2s; }
+    .typing-dot:nth-child(3) { animation-delay: .4s; }
+    @keyframes bounce { 0%,80%,100% { transform: scale(.7); opacity: .4; } 40% { transform: scale(1); opacity: 1; } }
+
+    .chat-area::-webkit-scrollbar { width: 6px; }
+    .chat-area::-webkit-scrollbar-thumb { background: #d0d7e5; border-radius: 3px; }
+
+    /* ── Regular composer (always-visible, shown before/after questions) ── */
+    .regular-composer-wrap {
+      flex-shrink: 0; border-top: 1px solid var(--border);
+      padding: 12px 16px; display: flex; justify-content: center;
+      background: var(--white);
+    }
+    .regular-composer-inner {
+      width: 660px; max-width: 100%;
+      background: var(--neutral); border-radius: 10px;
+      padding: 10px 14px; display: flex; align-items: center; gap: 8px;
+    }
+    .regular-composer-input {
+      flex: 1; border: none; outline: none; background: transparent;
+      font-family: var(--font); font-size: 16px; color: var(--primary);
+    }
+    .regular-composer-input::placeholder { color: var(--weak); }
+    .regular-composer-btn {
+      width: 32px; height: 32px; border-radius: 7px; border: none;
+      background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center;
+      color: var(--weak); transition: background .12s;
+    }
+    .regular-composer-btn:hover { background: var(--border); }
+    .regular-composer-btn.send { background: var(--blue); color: white; }
+    .regular-composer-btn.send:hover { background: #2a6de8; }
+    .regular-composer-btn svg { width: 15px; height: 15px; }
+
+    /* ── Bottom: overlay floating above chat ── */
+    .bottom-zone {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      padding: 0 16px 12px;
+      display: flex; flex-direction: column; align-items: center; gap: 6px;
+      background: transparent;
+      pointer-events: none;
+    }
+    .bottom-zone::before {
+      content: '';
+      position: absolute; top: -48px; left: 0; right: 0; height: 48px;
+      background: linear-gradient(to bottom, transparent, rgba(255,255,255,.85));
+      pointer-events: none;
+    }
+    .bottom-zone > * { pointer-events: all; }
+
+    /* Question card */
+    .q-card {
+      width: 660px; max-width: 100%;
+      background: var(--white);
+      border: 1.5px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      opacity: 0; transform: translateY(16px);
+    }
+    .q-card.show { animation: cardIn .4s cubic-bezier(.22,.68,0,1.2) forwards; }
+    @keyframes cardIn { to { opacity: 1; transform: translateY(0); } }
+
+    /* Card header row */
+    .q-card-header {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      padding: 14px 16px 12px;
+      gap: 16px;
+    }
+    .q-card-title { font-size: 15px; font-weight: 600; line-height: 21px; color: var(--primary); flex: 1; }
+    .q-card-nav { display: flex; align-items: center; gap: 4px; flex-shrink: 0; padding-top: 1px; }
+    .nav-arrow {
+      width: 26px; height: 26px; border-radius: 6px;
+      border: 1.5px solid var(--border); background: transparent;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      color: var(--weak); transition: background .12s, color .12s;
+    }
+    .nav-arrow:hover { background: var(--neutral); color: var(--primary); }
+    .nav-arrow:disabled { opacity: .3; cursor: default; }
+    .nav-arrow svg { width: 13px; height: 13px; }
+    .nav-count { font-size: 12px; font-weight: 600; color: var(--weak); padding: 0 4px; white-space: nowrap; }
+    .nav-close {
+      width: 26px; height: 26px; border-radius: 6px; border: none;
+      background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center;
+      color: var(--weak); margin-left: 4px; transition: background .12s;
+    }
+    .nav-close:hover { background: var(--neutral); }
+    .nav-close svg { width: 14px; height: 14px; }
+
+    /* Options */
+    .q-options { border-top: 1px solid var(--border); }
+    .q-option {
+      display: flex; align-items: center; gap: 12px;
+      padding: 11px 16px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer; transition: background .12s;
+      position: relative;
+    }
+    .q-option:last-child { border-bottom: none; }
+    .q-option:hover { background: var(--row-hover); }
+    .q-option.selected { background: var(--row-selected); }
+    .q-option.focused { background: var(--row-hover); }
+
+    .opt-num {
+      width: 24px; height: 24px; border-radius: 6px; flex-shrink: 0;
+      background: #ebebeb; display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 600; color: var(--weak);
+      transition: background .12s, color .12s;
+    }
+    .q-option.selected .opt-num { background: var(--primary); color: white; }
+    .q-option.focused .opt-num  { background: var(--primary); color: white; }
+
+    .opt-text { flex: 1; display: flex; flex-direction: column; gap: 1px; }
+    .opt-label { font-size: 15px; font-weight: 600; line-height: 21px; color: var(--primary); }
+    .opt-desc  { font-size: 13px; font-weight: 400; line-height: 18px; color: var(--weak); }
+    .q-option.selected .opt-label,
+    .q-option.focused  .opt-label { color: var(--primary); }
+    .q-option.selected .opt-desc,
+    .q-option.focused  .opt-desc  { color: var(--weak); }
+    .opt-arrow { color: var(--weak); opacity: 0; transition: opacity .12s; flex-shrink: 0; }
+    .q-option.selected .opt-arrow,
+    .q-option.focused  .opt-arrow { opacity: 1; }
+    .opt-arrow svg { width: 16px; height: 16px; display: block; }
+
+    /* "Something else" row */
+    .q-custom-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 11px 16px;
+      border-top: 1px solid var(--border);
+    }
+    .custom-icon { color: var(--weak); flex-shrink: 0; }
+    .custom-icon svg { width: 15px; height: 15px; display: block; }
+    .custom-placeholder { flex: 1; font-size: 15px; color: #b0b8c9; }
+    .btn-skip {
+      background: transparent; border: 1.5px solid var(--border);
+      font-family: var(--font); font-size: 13px; font-weight: 600;
+      color: var(--primary); padding: 5px 14px; border-radius: 8px; cursor: pointer;
+      transition: background .12s;
+    }
+    .btn-skip:hover { background: var(--neutral); }
+
+    /* Composer panel */
+    .composer-panel {
+      width: 660px; max-width: 100%;
+      background: var(--white);
+      border: 1.5px solid var(--border);
+      border-radius: 14px;
+      padding: 12px 14px 10px;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .composer-input {
+      border: none; outline: none; background: transparent;
+      font-family: var(--font); font-size: 16px; color: var(--primary); width: 100%;
+    }
+    .composer-input::placeholder { color: #b0b8c9; }
+    .composer-toolbar { display: flex; align-items: center; gap: 8px; }
+    .composer-add {
+      width: 28px; height: 28px; border-radius: 6px; border: 1.5px solid var(--border);
+      background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center;
+      color: var(--weak); transition: background .12s;
+    }
+    .composer-add:hover { background: var(--neutral); }
+    .composer-add svg { width: 14px; height: 14px; }
+    .composer-spacer { flex: 1; }
+    .composer-send {
+      background: var(--blue); color: white; border: none;
+      font-family: var(--font); font-size: 14px; font-weight: 600;
+      padding: 7px 18px; border-radius: 8px; cursor: pointer;
+      display: flex; align-items: center; gap: 6px; transition: background .15s;
+    }
+    .composer-send:hover { background: #2a6de8; }
+    .composer-send svg { width: 14px; height: 14px; }
+
+    /* Keyboard hint */
+    .kbd-hint {
+      font-size: 11px; color: var(--weak); opacity: .7;
+      display: flex; gap: 12px; align-items: center;
+    }
+    .kbd-hint span { display: flex; align-items: center; gap: 4px; }
+    .kbd-dot { width: 2px; height: 2px; border-radius: 50%; background: var(--weak); }
+
+    /* ── Summary card (in chat) ── */
+    .summary-card {
+      margin: 0 auto 12px;
+      max-width: 440px;
+      width: calc(100% - 32px);
+      background: #eef4fb;
+      border: 1px solid #dbe6f3;
+      border-radius: 12px;
+      overflow: hidden;
+      opacity: 0;
+    }
+    .summary-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      background: #dbe9f9;
+    }
+    .summary-title {
+      font-size: 15px;
+      font-weight: 700;
+      line-height: 20px;
+      letter-spacing: -0.2px;
+      color: var(--primary);
+      text-transform: none;
+    }
+    .summary-icon {
+      flex-shrink: 0;
+      width: 36px; height: 36px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .summary-icon svg,
+    .summary-icon img { width: 100%; height: 100%; object-fit: contain; display: block; }
+    .summary-body {
+      padding: 0 14px;
+      display: flex; flex-direction: column;
+      background: #eef4fb;
+    }
+    .summary-item {
+      display: flex; flex-direction: column; gap: 2px;
+      padding: 11px 6px;
+      margin: 0 -6px;
+      border-bottom: 1px solid #d6e0ee;
+      cursor: pointer;
+      border-radius: 6px;
+      transition: background .12s;
+    }
+    .summary-item:hover { background: #dde7f3; }
+    .summary-item:last-child { border-bottom: none; }
+    .summary-q {
+      font-size: 13px; font-weight: 700; line-height: 18px;
+      color: var(--primary);
+    }
+    .summary-a {
+      font-size: 12px; font-weight: 400; line-height: 17px;
+      color: #6b7384;
+    }
+    .summary-footer {
+      display: flex; align-items: center; justify-content: center; gap: 12px;
+      padding: 10px 14px 12px;
+      border-top: 1px solid #d6e0ee;
+      background: #eef4fb;
+    }
+    .btn-confirm-answers {
+      background: var(--blue); color: white; border: none;
+      font-family: var(--font); font-size: 13px; font-weight: 600;
+      padding: 7px 18px; border-radius: 6px; cursor: pointer;
+      display: inline-flex; align-items: center; gap: 6px;
+      transition: background .15s;
+    }
+    .btn-confirm-answers:hover { background: #2a6de8; }
+    .btn-edit-answers {
+      background: transparent; border: none;
+      font-family: var(--font); font-size: 13px; font-weight: 600;
+      color: var(--blue); padding: 6px 4px; cursor: pointer;
+      transition: opacity .12s;
+    }
+    .btn-edit-answers:hover { opacity: .75; }
+
+    /* ── Selection confirmation pop ── */
+    @keyframes optNumPop {
+      0%   { transform: scale(1); }
+      35%  { transform: scale(1.22); }
+      65%  { transform: scale(0.92); }
+      100% { transform: scale(1); }
+    }
+    .opt-num.pop { animation: optNumPop .38s cubic-bezier(.22,.68,0,1.5); }
+
+    /* ── Question body transition ── */
+    #q-body { overflow: hidden; }
+    @keyframes bodyOut {
+      from { opacity: 1;  transform: translateY(0);    }
+      to   { opacity: 0;  transform: translateY(-10px); }
+    }
+    @keyframes bodyIn {
+      from { opacity: 0;  transform: translateY(14px); }
+      to   { opacity: 1;  transform: translateY(0);    }
+    }
+    #q-body.exiting { animation: bodyOut .26s ease forwards; }
+    #q-body.entering { animation: bodyIn  .36s ease forwards; }
+
+    /* Title crossfade */
+    @keyframes titleFade {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+    #q-title.refreshing { animation: titleFade .3s ease forwards; }
+
+    /* ── Collapse zone into bar ── */
+    @keyframes collapseDown {
+      0%   { opacity: 1; transform: translateY(0);   }
+      100% { opacity: 0; transform: translateY(28px); }
+    }
+    .bottom-zone.collapsing {
+      animation: collapseDown .42s cubic-bezier(.4,0,.6,1) forwards;
+      pointer-events: none;
+    }
+
+    /* ═══════════════════════════════════════════════════
+       COURSE CHROME — applied across all diagnostic options
+       so each prototype lives inside the shared course
+       outline + learning environment shell.
+       ═══════════════════════════════════════════════════ */
+    html, body { background: #eef0f4; }
+    .shell { background: #eef0f4; }
+
+    .coursera-nav {
+      height: 56px;
+      background: #ffffff;
+      border-bottom: 1px solid #dae1ed;
+      padding: 0 16px;
+    }
+    .coursera-wordmark { font-size: 20px; letter-spacing: -.5px; }
+
+    /* Layout area below nav */
+    .page-body {
+      padding: 16px;
+      gap: 16px;
+      background: #eef0f4;
+    }
+
+    /* Course outline sidebar */
+    .sidebar {
+      width: 268px;
+      flex-shrink: 0;
+      background: #ffffff;
+      border: 1px solid #dae1ed;
+      border-right: 1px solid #dae1ed;
+      border-radius: 16px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      padding-top: 0;
+    }
+    .sidebar-header {
+      padding: 20px 20px 12px;
+      border-bottom: 1px solid #dae1ed;
+    }
+    .sidebar-course-title {
+      font-size: 16px; font-weight: 600; line-height: 22px;
+      color: #0F1114; margin-bottom: 6px;
+      letter-spacing: -0.04px;
+    }
+    .sidebar-progress-link {
+      font-size: 14px; font-weight: 600; color: #0056D2;
+      text-decoration: none; cursor: pointer;
+    }
+    .sidebar-progress-link:hover { text-decoration: underline; }
+
+    .today-block {
+      margin: 12px 12px 0;
+      background: #ffffff;
+      border: 1px solid #dae1ed;
+      border-radius: 10px;
+      padding: 12px 14px;
+    }
+    .today-block-header {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 13px; font-weight: 600; color: #0F1114;
+      margin-bottom: 2px;
+    }
+    .today-block-dot { color: #5b6780; }
+    .today-block-time { font-weight: 600; }
+    .today-block-sub {
+      font-size: 12px; color: #5b6780; line-height: 16px;
+    }
+
+    .sidebar-list {
+      flex: 1; overflow-y: auto; padding: 12px 0 16px;
+    }
+    .sidebar-list::-webkit-scrollbar { width: 4px; }
+    .sidebar-list::-webkit-scrollbar-thumb { background: #dae1ed; border-radius: 2px; }
+
+    .course-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 20px;
+      cursor: pointer; transition: background .12s;
+      position: relative;
+    }
+    .course-item:hover { background: #f2f5fa; }
+    .course-item.active { background: #eaf1fc; }
+    .course-item.active::before {
+      content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+      width: 3px; background: #0056D2;
+    }
+    .ci-check {
+      width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .ci-check.done { background: #095941; }
+    .ci-check.done svg { color: white; width: 11px; height: 11px; }
+    .ci-check.pending { background: #e8eef7; }
+    .ci-check.active-circle {
+      background: transparent;
+      border: 2px solid #0056D2;
+      box-sizing: border-box;
+    }
+    .ci-info { flex: 1; min-width: 0; }
+    .ci-name { font-size: 13px; font-weight: 400; color: #0F1114; line-height: 18px; }
+    .ci-meta { font-size: 12px; color: #636363; }
+
+    /* Main learning environment card */
+    .content-area {
+      background: #ffffff;
+      border: 1px solid #dae1ed;
+      border-radius: 16px;
+      overflow: hidden;
+    }
+
+    /* Learning environment header */
+    .learning-env-header {
+      padding: 18px 24px 14px;
+      border-bottom: 1px solid #dae1ed;
+      background: #ffffff;
+      flex-shrink: 0;
+    }
+    .learning-env-title {
+      font-size: 18px; font-weight: 600;
+      color: #0F1114;
+      letter-spacing: -0.1px;
+      line-height: 24px;
+      margin: 0;
+    }
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- Coursera + Google Top Nav -->
+  <nav class="coursera-nav">
+    <div class="coursera-nav-left">
+      <span class="coursera-wordmark">coursera</span>
+      <span class="nav-partner-sep">|</span>
+      <span class="google-wordmark"><span style="color:#4285F4">G</span><span style="color:#EA4335">o</span><span style="color:#FBBC05">o</span><span style="color:#4285F4">g</span><span style="color:#34A853">l</span><span style="color:#EA4335">e</span></span>
+    </div>
+    <div class="coursera-nav-right">
+      <button class="nav-icon-btn" title="Help">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><circle cx="12" cy="17.5" r=".6" fill="currentColor"/></svg>
+      </button>
+      <button class="nav-icon-btn" title="Language">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+      </button>
+      <button class="nav-icon-btn" title="Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="8" cy="6" r="2" fill="white" stroke="currentColor" stroke-width="1.8"/><circle cx="16" cy="12" r="2" fill="white" stroke="currentColor" stroke-width="1.8"/><circle cx="10" cy="18" r="2" fill="white" stroke="currentColor" stroke-width="1.8"/></svg>
+      </button>
+      <button class="user-avatar-btn" title="Profile">N</button>
+    </div>
+  </nav>
+
+  <div class="page-body">
+
+    <!-- Course outline sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-course-title">SQL for Data Science (and Version Control with GitHub)</div>
+        <a class="sidebar-progress-link">Course progress</a>
+      </div>
+      <div class="today-block">
+        <div class="today-block-header">
+          Today's learning block
+          <span class="today-block-dot">•</span>
+          <span class="today-block-time">60 min</span>
+        </div>
+        <div class="today-block-sub">Diving deeper into databases and Jupyter Notebooks</div>
+      </div>
+      <div class="sidebar-list">
+        <div class="course-item">
+          <div class="ci-check done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
+          <div class="ci-info">
+            <div class="ci-name">Today's learning overview</div>
+            <div class="ci-meta">Video</div>
+          </div>
+        </div>
+        <div class="course-item">
+          <div class="ci-check done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
+          <div class="ci-info">
+            <div class="ci-name">Welcome to SQL for data science</div>
+            <div class="ci-meta">Video</div>
+          </div>
+        </div>
+        <div class="course-item">
+          <div class="ci-check done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
+          <div class="ci-info">
+            <div class="ci-name">SQL basics</div>
+            <div class="ci-meta">Reading</div>
+          </div>
+        </div>
+        <div class="course-item">
+          <div class="ci-check done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
+          <div class="ci-info">
+            <div class="ci-name">Indexing overview</div>
+            <div class="ci-meta">Video</div>
+          </div>
+        </div>
+        <div class="course-item">
+          <div class="ci-check done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
+          <div class="ci-info">
+            <div class="ci-name">Practice questions</div>
+            <div class="ci-meta">Reading</div>
+          </div>
+        </div>
+        <div class="course-item active">
+          <div class="ci-check active-circle"></div>
+          <div class="ci-info">
+            <div class="ci-name">Joins for multiple data sets</div>
+            <div class="ci-meta">Reading</div>
+          </div>
+        </div>
+        <div class="course-item">
+          <div class="ci-check pending"></div>
+          <div class="ci-info">
+            <div class="ci-name">Advanced data Assessment</div>
+            <div class="ci-meta">Reading</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="content-area">
+
+  <!-- Learning environment header -->
+  <div class="learning-env-header">
+    <h2 class="learning-env-title">Self-assessment</h2>
+  </div>
+
+  <!-- Chat -->
+  <div class="chat-area">
+    <div class="chat-scroll">
+      <div class="chat-inner" id="chat-inner">
+        <div class="msg user-row" id="msg-user">
+          <div class="user-bubble">I'm a PM and I only care about professional workflows. I can write simple queries, so let's fast-track through the basics and spend more time on GitHub and AI tools.</div>
+        </div>
+        <div class="typing-indicator msg" id="msg-typing">
+          <div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>
+        </div>
+        <div class="msg ai-row" id="msg-ai" style="display:none;">
+          Great! Answer a few quick questions so we can tailor this course to the right level for you.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Regular composer — visible before and after questions -->
+  <div class="regular-composer-wrap" id="regular-composer">
+    <div class="regular-composer-inner">
+      <input class="regular-composer-input" type="text" placeholder="Ask anything" />
+      <button class="regular-composer-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+      </button>
+      <button class="regular-composer-btn send">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Bottom zone — hidden until AI message triggers it -->
+  <div class="bottom-zone" id="bottom-zone" style="display:none">
+
+    <!-- Question card -->
+    <div class="q-card" id="q-card">
+      <div class="q-card-header">
+        <div class="q-card-title" id="q-title">Can you write a SELECT statement and filter results with WHERE?</div>
+        <div class="q-card-nav">
+          <button class="nav-arrow" id="btn-prev" onclick="prevQ()" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          <span class="nav-count" id="nav-count">1 of 3</span>
+          <button class="nav-arrow" id="btn-next" onclick="nextQ()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+          <button class="nav-close" onclick="closeCard()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+      </div>
+      <div id="q-body">
+        <div class="q-options" id="q-options"><!-- rendered by JS --></div>
+        <div class="q-custom-row">
+          <span class="custom-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></span>
+          <span class="custom-placeholder">Something else</span>
+          <button class="btn-skip" onclick="closeCard()">Skip</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Composer -->
+    <div class="composer-panel">
+      <input class="composer-input" placeholder="Or reply directly…" type="text" />
+      <div class="composer-toolbar">
+        <button class="composer-add">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
+        <div class="composer-spacer"></div>
+        <button class="composer-send">
+          Send
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Keyboard hint -->
+    <div class="kbd-hint">
+      <span>↑↓ to navigate</span>
+      <div class="kbd-dot"></div>
+      <span>Enter to select</span>
+      <div class="kbd-dot"></div>
+      <span>or type below</span>
+    </div>
+
+  </div>
+    </div><!-- /.content-area -->
+  </div><!-- /.page-body -->
+</div>
+
+<script>
+  const questions = [
+    {
+      text: "Can you write a SELECT statement and filter results with WHERE?",
+      options: [
+        { label: "I'm new to this",  desc: "I'm still figuring out the basic syntax." },
+        { label: "I've seen this",   desc: "I can handle SELECT and WHERE, but a quick refresh wouldn't hurt." },
+        { label: "I know this well", desc: "I'm a pro at basics. Skip the intro and let's get to work." }
+      ]
+    },
+    {
+      text: "Can you use JOIN to combine data from multiple tables?",
+      options: [
+        { label: "I'm new to this",  desc: "I haven't worked with JOINs before." },
+        { label: "I've seen this",   desc: "I've used basic JOINs but could use a refresher." },
+        { label: "I know this well", desc: "I'm comfortable with INNER, LEFT, and other JOIN types." }
+      ]
+    },
+    {
+      text: "Can you use GROUP BY and aggregate functions like COUNT or SUM?",
+      options: [
+        { label: "I'm new to this",  desc: "Aggregation is new territory for me." },
+        { label: "I've seen this",   desc: "I've seen GROUP BY but don't use it confidently." },
+        { label: "I know this well", desc: "I write aggregate queries regularly." }
+      ]
+    }
+  ];
+
+  let current = 0;
+  let answers  = [null, null, null]; // stores option index per question
+  let focusedIdx = 0;
+  let advancing = false; // debounce auto-advance
+
+  /* ── Render question card ── */
+  function renderQ(enterAnim) {
+    const q = questions[current];
+
+    // Title
+    const titleEl = document.getElementById('q-title');
+    titleEl.textContent = q.text;
+    if (enterAnim) {
+      titleEl.classList.remove('refreshing');
+      titleEl.offsetHeight;
+      titleEl.classList.add('refreshing');
+    }
+
+    document.getElementById('nav-count').textContent = `${current + 1} of ${questions.length}`;
+    document.getElementById('btn-prev').disabled     = current === 0;
+    document.getElementById('btn-next').disabled     = current === questions.length - 1;
+
+    // Options
+    const container = document.getElementById('q-options');
+    container.innerHTML = '';
+    q.options.forEach((opt, i) => {
+      const row = document.createElement('div');
+      row.className = 'q-option'
+        + (answers[current] === i ? ' selected' : '')
+        + (focusedIdx === i ? ' focused' : '');
+      row.innerHTML = `
+        <div class="opt-num">${i + 1}</div>
+        <div class="opt-text">
+          <div class="opt-label">${opt.label}</div>
+          <div class="opt-desc">${opt.desc}</div>
+        </div>
+        <span class="opt-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></span>
+      `;
+      row.addEventListener('click', () => selectAnswer(i));
+      container.appendChild(row);
+    });
+
+    // Body enter animation (question transition)
+    if (enterAnim) {
+      const body = document.getElementById('q-body');
+      body.classList.remove('exiting', 'entering');
+      body.offsetHeight;
+      body.classList.add('entering');
+    }
+
+    // Full card appear animation (first render / edit return)
+    if (!enterAnim) {
+      const card = document.getElementById('q-card');
+      card.style.animation = 'none';
+      card.offsetHeight;
+      card.style.animation = 'cardIn .3s ease forwards';
+      card.style.opacity = '1';
+      card.style.transform = 'translateY(0)';
+    }
+  }
+
+  /* ── Select an answer and auto-advance or summarise ── */
+  function selectAnswer(idx) {
+    if (advancing) return;
+    answers[current] = idx;
+    focusedIdx = idx;
+    renderQ(); // show selection highlight immediately
+
+    // 1. Pop the badge of the selected option
+    const optNums = document.querySelectorAll('#q-options .opt-num');
+    if (optNums[idx]) {
+      optNums[idx].classList.remove('pop');
+      optNums[idx].offsetHeight; // reflow
+      optNums[idx].classList.add('pop');
+    }
+
+    advancing = true;
+
+    if (current < questions.length - 1) {
+      // 2a. After pause, animate body out then swap to next question
+      setTimeout(() => {
+        const body = document.getElementById('q-body');
+        body.classList.remove('entering');
+        body.classList.add('exiting');
+
+        setTimeout(() => {
+          current++;
+          focusedIdx = answers[current] !== null ? answers[current] : 0;
+          advancing = false;
+          renderQ(true);
+        }, 270); // matches slowed bodyOut
+      }, 350); // longer pause after pop
+
+    } else {
+      // 2b. Last question — body exits, then collapse whole zone into bar
+      setTimeout(() => {
+        const body = document.getElementById('q-body');
+        body.classList.remove('entering');
+        body.classList.add('exiting');
+        setTimeout(() => { advancing = false; showSummary(); }, 270);
+      }, 350);
+    }
+  }
+
+  function prevQ() {
+    if (advancing) return;
+    if (current > 0) { current--; focusedIdx = answers[current] !== null ? answers[current] : 0; renderQ(true); }
+  }
+  function nextQ() {
+    if (advancing) return;
+    if (current < questions.length - 1) { current++; focusedIdx = answers[current] !== null ? answers[current] : 0; renderQ(true); }
+  }
+  function closeCard() { showSummary(); }
+
+  /* ── Build & show summary card in chat ── */
+  function showSummary() {
+    const zone     = document.getElementById('bottom-zone');
+    const composer = document.getElementById('regular-composer');
+
+    // Phase 1: fade the bottom-zone away (clean translateY, no squish)
+    zone.classList.add('collapsing');
+
+    // Pre-show the regular composer at opacity 0 so it occupies layout space
+    // (avoids the hard-cut when it suddenly snaps into view)
+    composer.style.transition = 'none';
+    composer.style.opacity    = '0';
+    composer.style.display    = '';
+
+    setTimeout(() => {
+      // Phase 2: remove zone, begin cross-fading composer in
+      zone.style.display = 'none';
+      zone.classList.remove('collapsing');
+      document.querySelector('.chat-scroll').classList.remove('overlay-active');
+
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          composer.style.transition = 'opacity .38s ease';
+          composer.style.opacity    = '1';
+        });
+      });
+
+      // Build summary card — starts invisible via default CSS opacity:0
+      const inner = document.getElementById('chat-inner');
+      const summaryEl = document.createElement('div');
+      summaryEl.className = 'summary-card';
+      summaryEl.id = 'summary-card';
+
+      const itemsHTML = questions.map((q, i) => {
+        const ans = answers[i];
+        const ansText = ans !== null ? q.options[ans].desc : '<em>Skipped</em>';
+        return `
+          <div class="summary-item" onclick="editAnswerAt(${i})">
+            <div class="summary-q">${q.text}</div>
+            <div class="summary-a">${ansText}</div>
+          </div>`;
+      }).join('');
+
+      summaryEl.innerHTML = `
+        <div class="summary-header">
+          <div class="summary-title">Your Skill Experience</div>
+          <div class="summary-icon" aria-hidden="true">
+            <img src="Tree.svg" alt="" />
+          </div>
+        </div>
+        <div class="summary-body">${itemsHTML}</div>
+        <div class="summary-footer">
+          <button class="btn-confirm-answers" onclick="confirmAnswers()">
+            <span>Looks good</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          </button>
+          <button class="btn-edit-answers" onclick="editAnswers()">Edit</button>
+        </div>
+      `;
+
+      inner.appendChild(summaryEl);
+      document.querySelector('.chat-scroll').scrollTop = 999999;
+
+      // Phase 3: after a brief pause, trigger the card's entrance animation
+      // Double rAF ensures the browser has painted the card at opacity:0 first
+      setTimeout(() => {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            summaryEl.classList.add('show');
+            document.querySelector('.chat-scroll').scrollTop = 999999;
+          });
+        });
+      }, 420);
+
+    }, 460); // wait for collapse animation to finish
+  }
+
+  /* ── Edit: reopen the question panel at a specific question ── */
+  function editAnswerAt(idx) {
+    const summaryEl = document.getElementById('summary-card');
+    if (summaryEl) {
+      summaryEl.style.opacity = '0';
+      summaryEl.style.transition = 'opacity .18s';
+      setTimeout(() => summaryEl.remove(), 200);
+    }
+
+    current = idx;
+    focusedIdx = answers[idx] !== null ? answers[idx] : 0;
+    advancing = false;
+
+    showOverlay();
+    const card = document.getElementById('q-card');
+    card.style.opacity = '0';
+    card.style.transform = 'translateY(16px)';
+    card.style.transition = '';
+
+    // Reset q-body — it may still be in the 'exiting' state from the last
+    // question's auto-advance (opacity 0, translated up). Without this, the
+    // options render into the DOM but stay invisible.
+    const body = document.getElementById('q-body');
+    body.classList.remove('exiting', 'entering');
+    body.style.animation = 'none';
+    body.offsetHeight; // force reflow
+    body.style.animation = '';
+
+    renderQ();
+    setTimeout(() => { card.classList.remove('show'); card.classList.add('show'); }, 30);
+  }
+
+  /* Edit button — restart from the first question */
+  function editAnswers() { editAnswerAt(0); }
+
+  /* ── Confirm: brief confirmation then cross-fade to Course One-Pager ── */
+  function confirmAnswers() {
+    const summaryEl = document.getElementById('summary-card');
+
+    // Swap footer to confirmed state
+    summaryEl.querySelector('.summary-footer').innerHTML = `
+      <span style="font-size:14px;color:var(--weak);display:flex;align-items:center;gap:6px;padding:2px 4px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        Personalizing your course…
+      </span>
+    `;
+    document.querySelector('.chat-scroll').scrollTop = 999999;
+
+    // After short pause, fade the whole shell out and navigate
+    setTimeout(() => {
+      const shell = document.querySelector('.shell');
+      shell.style.transition = 'opacity .45s ease, transform .45s ease';
+      shell.style.opacity = '0';
+      shell.style.transform = 'scale(.98)';
+      setTimeout(() => {
+        window.location.href = 'course-one-pager.html';
+      }, 460);
+    }, 700);
+  }
+
+  /* ── Keyboard navigation ── */
+  document.addEventListener('keydown', (e) => {
+    if (!document.getElementById('q-card') || document.getElementById('bottom-zone').style.display === 'none') return;
+    const q = questions[current];
+    if (e.key === 'ArrowDown') { e.preventDefault(); focusedIdx = Math.min(focusedIdx + 1, q.options.length - 1); renderQ(false); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); focusedIdx = Math.max(focusedIdx - 1, 0); renderQ(false); }
+    else if (e.key === 'Enter') { e.preventDefault(); selectAnswer(focusedIdx); }
+    else if (['1','2','3'].includes(e.key)) { const i = +e.key - 1; if (q.options[i]) selectAnswer(i); }
+  });
+
+  /* ── Animated intro sequence ── */
+  function runIntro() {
+    const card = document.getElementById('q-card');
+    card.style.opacity = '0';
+    card.style.transform = 'translateY(16px)';
+
+    setTimeout(() => document.getElementById('msg-user').classList.add('show'), 800);
+    setTimeout(() => document.getElementById('msg-typing').classList.add('show'), 1600);
+    setTimeout(() => {
+      document.getElementById('msg-typing').style.display = 'none';
+      const ai = document.getElementById('msg-ai');
+      ai.style.display = 'block';
+      ai.classList.add('show');
+      // Reveal the overlay + animate card in after the AI message settles
+      setTimeout(() => {
+        showOverlay();
+        card.classList.add('show');
+      }, 520);
+    }, 3000);
+  }
+
+  /* ── Overlay show/hide helpers ── */
+  function showOverlay() {
+    const composer = document.getElementById('regular-composer');
+    composer.style.opacity   = '';
+    composer.style.transition = '';
+    composer.style.display   = 'none';
+    document.getElementById('bottom-zone').style.display = '';
+    document.querySelector('.chat-scroll').classList.add('overlay-active');
+  }
+  function hideOverlay() {
+    document.getElementById('bottom-zone').style.display = 'none';
+    const composer = document.getElementById('regular-composer');
+    composer.style.opacity   = '';
+    composer.style.transition = '';
+    composer.style.display   = '';
+    document.querySelector('.chat-scroll').classList.remove('overlay-active');
+  }
+
+  renderQ();
+
+  /* Start only when the parent launcher sends 'start' (tab click / restore) */
+  let _introStarted = false;
+  window.addEventListener('message', (e) => {
+    if (e.data === 'start' && !_introStarted) {
+      _introStarted = true;
+      runIntro();
+    }
+  });
+</script>
+</body>
+</html>

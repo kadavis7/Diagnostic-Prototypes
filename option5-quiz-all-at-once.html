@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Option 5 – Quiz Style, All Questions at Once</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:ital,wght@0,300;0,400;0,600;0,700;1,400&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --color-primary:    #0F1114;
+      --color-weak:       #6b7a99;
+      --color-border:     #dde5ef;
+      --color-blue:       #3587fc;
+      --color-neutral-bg: #f2f5fa;
+      --color-white:      #ffffff;
+      --color-green:      #1a7a45;
+      --color-green-bg:   #daf0e5;
+      --color-green-border: #8ecfaa;
+      --font:             'Source Sans 3', sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body { height: 100%; overflow: hidden; }
+    body {
+      font-family: var(--font);
+      background: var(--color-white);
+      display: flex; flex-direction: column;
+    }
+
+    .shell {
+      flex: 1; width: 100%; height: 100%;
+      background: var(--color-white);
+      display: flex; flex-direction: column; overflow: hidden;
+      position: relative;
+    }
+
+    .page-body { flex: 1; display: flex; flex-direction: row; min-height: 0; overflow: hidden; }
+    .sidebar {
+      width: 44px; flex-shrink: 0;
+      border-right: 1px solid var(--color-border);
+      display: flex; flex-direction: column;
+      align-items: center; padding-top: 8px;
+      background: var(--color-white);
+    }
+    .sidebar-toggle {
+      width: 32px; height: 32px; border-radius: 6px; border: none;
+      background: transparent; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--color-weak); transition: background .15s;
+    }
+    .sidebar-toggle:hover { background: var(--color-neutral-bg); }
+    .sidebar-toggle svg { width: 18px; height: 18px; }
+    .content-area { flex: 1; display: flex; flex-direction: column; min-height: 0; overflow: hidden; position: relative; }
+
+    /* ── Coursera Navigation Bar ── */
+    .coursera-nav {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 20px; height: 52px;
+      border-bottom: 1px solid rgba(255,255,255,.35); flex-shrink: 0;
+      background: rgba(255,255,255,.82);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      z-index: 10;
+    }
+    .coursera-nav-left { display: flex; align-items: center; gap: 8px; }
+    .coursera-wordmark { font-size: 18px; font-weight: 700; color: #0056D2; letter-spacing: -0.4px; }
+    .nav-partner-sep { color: #bcc5d6; font-size: 18px; font-weight: 300; margin: 0 2px; }
+    .google-wordmark { font-size: 16px; font-weight: 500; }
+    .coursera-nav-right { display: flex; align-items: center; gap: 2px; }
+    .nav-icon-btn {
+      width: 34px; height: 34px; border-radius: 8px; border: none;
+      background: transparent; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--color-weak); transition: background .15s;
+    }
+    .nav-icon-btn:hover { background: rgba(255,255,255,.6); }
+    .nav-icon-btn svg { width: 18px; height: 18px; }
+    .user-avatar-btn {
+      width: 30px; height: 30px; border-radius: 50%;
+      background: #1e2229; color: white; border: none; cursor: pointer;
+      font-family: var(--font); font-size: 13px; font-weight: 600;
+      display: flex; align-items: center; justify-content: center;
+      margin-left: 4px;
+    }
+
+    /* ── Scrollable content area — gradient bg ── */
+    .scroll-area {
+      flex: 1; overflow-y: auto; padding: 0;
+      display: flex; flex-direction: column; align-items: center;
+      scroll-behavior: smooth;
+      background: linear-gradient(150deg, #b8d8d2 0%, #c4d4e8 48%, #d0e2f2 100%);
+    }
+    .scroll-area::-webkit-scrollbar { width: 6px; }
+    .scroll-area::-webkit-scrollbar-thumb { background: rgba(100,130,170,.28); border-radius: 3px; }
+
+    .questions-wrap {
+      width: 520px; max-width: calc(100% - 48px);
+      display: flex; flex-direction: column; gap: 48px;
+      /* padding-top/bottom set by JS to center Q1 at scrollTop=0 */
+    }
+
+    /* ── All question blocks: full-size card ── */
+    .question-block {
+      display: flex; flex-direction: column;
+      background: rgba(255,255,255,.92);
+      box-shadow: 0 3px 16px rgba(20,50,90,.09);
+      border-radius: 16px;
+      padding: 24px 28px 20px;
+      opacity: 0.38;
+      transition: opacity 0.4s ease;
+      cursor: pointer;
+    }
+
+    /* Active card: full opacity, stronger shadow */
+    .question-block.active {
+      opacity: 1;
+      cursor: default;
+      background: rgba(255,255,255,.97);
+      box-shadow: 0 8px 40px rgba(20,50,90,.15);
+    }
+
+    /* Answered inactive: slightly more visible than unanswered */
+    .question-block.answered:not(.active) { opacity: 0.55; }
+
+    /* Unanswered inactive: compact (just question label+text, no options) */
+    .question-block:not(.active):not(.answered) { padding: 14px 18px; }
+
+    /* ── Question meta ── */
+    .q-meta {
+      display: flex; flex-direction: column; gap: 5px;
+      margin-bottom: 14px;
+    }
+    /* Compact meta for unanswered inactive */
+    .question-block:not(.active):not(.answered) .q-meta { gap: 3px; margin-bottom: 0; }
+
+    .q-number {
+      font-size: 12px; font-weight: 600; line-height: 17px;
+      letter-spacing: 0.04em; text-transform: uppercase;
+      color: var(--color-weak);
+    }
+    .question-block:not(.active):not(.answered) .q-number { font-size: 10px; line-height: 14px; }
+
+    .q-text {
+      font-size: 19px; font-weight: 700; line-height: 25px;
+      letter-spacing: -0.2px; color: var(--color-primary);
+    }
+    .question-block:not(.active):not(.answered) .q-text {
+      font-size: 14px; font-weight: 600; line-height: 20px; letter-spacing: -0.1px;
+    }
+
+    /* ── Option group ── */
+    .option-group { display: flex; flex-direction: column; gap: 7px; }
+
+    /* Unanswered inactive: hide all options */
+    .question-block:not(.active):not(.answered) .option-group { display: none; }
+
+    /* Answered inactive: show only the selected option */
+    .question-block.answered:not(.active) .option-row:not(.selected) { display: none; }
+
+    /* ── Option rows — same full size everywhere ── */
+    .option-row {
+      display: flex; align-items: flex-start; gap: 12px;
+      padding: 11px 14px;
+      border-radius: 10px;
+      border: 1.5px solid var(--color-border);
+      background: var(--color-white);
+      cursor: pointer;
+      transition: background .15s, border-color .15s, transform .15s;
+      user-select: none;
+    }
+    .option-row:hover { background: #f0f6ff; border-color: #b5c8e8; }
+    .option-row.selected {
+      background: var(--color-green-bg);
+      border-color: var(--color-green-border);
+    }
+
+    /* Selection flash */
+    @keyframes optionFlash {
+      0%   { transform: scale(1); }
+      40%  { transform: scale(1.016); box-shadow: 0 2px 14px rgba(26,122,69,.22); }
+      100% { transform: scale(1); box-shadow: none; }
+    }
+    .option-row.selecting { animation: optionFlash 0.3s ease forwards; }
+
+    /* Radio circle — same size everywhere */
+    .radio-circle {
+      flex-shrink: 0;
+      width: 20px; height: 20px; border-radius: 50%;
+      border: 2px solid #b5c2d4;
+      display: flex; align-items: center; justify-content: center;
+      margin-top: 2px;
+      transition: border-color .15s, background .15s;
+    }
+    .option-row.selected .radio-circle { background: var(--color-green); border-color: var(--color-green); }
+    .radio-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: white; opacity: 0; transition: opacity .15s;
+    }
+    .option-row.selected .radio-dot { opacity: 1; }
+
+    /* Option text */
+    .option-text { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+    .option-label { font-size: 14px; font-weight: 600; line-height: 20px; color: var(--color-primary); }
+    .option-desc  { font-size: 12px; font-weight: 400; line-height: 17px; color: var(--color-weak); }
+    .option-row.selected .option-label { color: #0d4f2d; }
+    .option-row.selected .option-desc  { color: #3a7a58; }
+
+    /* ── Inline completion actions (appear below Q3) ── */
+    .completion-actions {
+      display: flex; align-items: center; justify-content: center; gap: 16px;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.4s ease;
+      padding: 8px 0;
+    }
+    .completion-actions.visible { opacity: 1; pointer-events: all; }
+
+    .btn-personalize {
+      background: var(--color-blue); color: white; border: none;
+      font-family: var(--font); font-size: 15px; font-weight: 600;
+      padding: 13px 28px; border-radius: 8px; cursor: pointer;
+      transition: background .15s;
+    }
+    .btn-personalize:hover { background: #2a6de8; }
+
+    .btn-edit {
+      background: none; border: none;
+      font-family: var(--font); font-size: 15px; font-weight: 600;
+      color: var(--color-primary); padding: 13px 4px; cursor: pointer;
+      text-decoration: underline; text-decoration-color: rgba(15,17,20,.25);
+      text-underline-offset: 3px; transition: opacity .15s;
+    }
+    .btn-edit:hover { opacity: 0.65; }
+
+    /* ═══════════════════════════════════════════════════
+       COURSE CHROME — applied across all diagnostic options
+       so each prototype lives inside the shared course
+       outline + learning environment shell.
+       ═══════════════════════════════════════════════════ */
+    html, body { background: #eef0f4; }
+    .shell { background: #eef0f4; }
+
+    .coursera-nav {
+      height: 56px;
+      background: #ffffff;
+      border-bottom: 1px solid #dae1ed;
+      padding: 0 16px;
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
+    .coursera-wordmark { font-size: 20px; letter-spacing: -.5px; }
+
+    .page-body {
+      padding: 16px;
+      gap: 16px;
+      background: #eef0f4;
+    }
+
+    .sidebar {
+      width: 268px;
+      flex-shrink: 0;
+      background: #ffffff;
+      border: 1px solid #dae1ed;
+      border-right: 1px solid #dae1ed;
+      border-radius: 16px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      padding-top: 0;
+    }
+    .sidebar-header {
+      padding: 20px 20px 12px;
+      border-bottom: 1px solid #dae1ed;
+    }
+    .sidebar-course-title {
+      font-size: 16px; font-weight: 600; line-height: 22px;
+      color: #0F1114; margin-bottom: 6px;
+      letter-spacing: -0.04px;
+    }
+    .sidebar-progress-link {
+      font-size: 14px; font-weight: 600; color: #0056D2;
+      text-decoration: none; cursor: pointer;
+    }
+    .sidebar-progress-link:hover { text-decoration: underline; }
+
+    .today-block {
+      margin: 12px 12px 0;
+      background: #ffffff;
+      border: 1px solid #dae1ed;
+      border-radius: 10px;
+      padding: 12px 14px;
+    }
+    .today-block-header {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 13px; font-weight: 600; color: #0F1114;
+      margin-bottom: 2px;
+    }
+    .today-block-dot { color: #5b6780; }
+    .today-block-time { font-weight: 600; }
+    .today-block-sub {
+      font-size: 12px; color: #5b6780; line-height: 16px;
+    }
+
+    .sidebar-list {
+      flex: 1; overflow-y: auto; padding: 12px 0 16px;
+    }
+    .sidebar-list::-webkit-scrollbar { width: 4px; }
+    .sidebar-list::-webkit-scrollbar-thumb { background: #dae1ed; border-radius: 2px; }
+
+    .course-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 20px;
+      cursor: pointer; transition: background .12s;
+      position: relative;
+    }
+    .course-item:hover { background: #f2f5fa; }
+    .course-item.active { background: #eaf1fc; }
+    .course-item.active::before {
+      content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+      width: 3px; background: #0056D2;
+    }
+    .ci-check {
+      width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .ci-check.done { background: #095941; }
+    .ci-check.done svg { color: white; width: 11px; height: 11px; }
+    .ci-check.pending { background: #e8eef7; }
+    .ci-check.active-circle {
+      background: transparent;
+      border: 2px solid #0056D2;
+      box-sizing: border-box;
+    }
+    .ci-info { flex: 1; min-width: 0; }
+    .ci-name { font-size: 13px; font-weight: 400; color: #0F1114; line-height: 18px; }
+    .ci-meta { font-size: 12px; color: #636363; }
+
+    .content-area {
+      background: #ffffff;
+      border: 1px solid #dae1ed;
+      border-radius: 16px;
+      overflow: hidden;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .learning-env-header {
+      padding: 18px 24px 14px;
+      border-bottom: 1px solid #dae1ed;
+      background: #ffffff;
+      flex-shrink: 0;
+    }
+    .learning-env-title {
+      font-size: 18px; font-weight: 600;
+      color: #0F1114;
+      letter-spacing: -0.1px;
+      line-height: 24px;
+      margin: 0;
+    }
+  </style>
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- Nav -->
+  <nav class="coursera-nav">
+    <div class="coursera-nav-left">
+      <span class="coursera-wordmark">coursera</span>
+      <span class="nav-partner-sep">|</span>
+      <span class="google-wordmark"><span style="color:#4285F4">G</span><span style="color:#EA4335">o</span><span style="color:#FBBC05">o</span><span style="color:#4285F4">g</span><span style="color:#34A853">l</span><span style="color:#EA4335">e</span></span>
+    </div>
+    <div class="coursera-nav-right">
+      <button class="nav-icon-btn" title="Help">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><circle cx="12" cy="17.5" r=".6" fill="currentColor"/></svg>
+      </button>
+      <button class="nav-icon-btn" title="Language">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+      </button>
+      <button class="nav-icon-btn" title="Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="8" cy="6" r="2" fill="white" stroke="currentColor" stroke-width="1.8"/><circle cx="16" cy="12" r="2" fill="white" stroke="currentColor" stroke-width="1.8"/><circle cx="10" cy="18" r="2" fill="white" stroke="currentColor" stroke-width="1.8"/></svg>
+      </button>
+      <button class="user-avatar-btn" title="Profile">N</button>
+    </div>
+  </nav>
+
+  <div class="page-body">
+
+    <!-- Course outline sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-course-title">SQL for Data Science (and Version Control with GitHub)</div>
+        <a class="sidebar-progress-link">Course progress</a>
+      </div>
+      <div class="today-block">
+        <div class="today-block-header">
+          Today's learning block
+          <span class="today-block-dot">•</span>
+          <span class="today-block-time">60 min</span>
+        </div>
+        <div class="today-block-sub">Diving deeper into databases and Jupyter Notebooks</div>
+      </div>
+      <div class="sidebar-list">
+        <div class="course-item">
+          <div class="ci-check done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
+          <div class="ci-info">
+            <div class="ci-name">Today's learning overview</div>
+            <div class="ci-meta">Video</div>
+          </div>
+        </div>
+        <div class="course-item">
+          <div class="ci-check done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
+          <div class="ci-info">
+            <div class="ci-name">Welcome to SQL for data science</div>
+            <div class="ci-meta">Video</div>
+          </div>
+        </div>
+        <div class="course-item">
+          <div class="ci-check done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
+          <div class="ci-info">
+            <div class="ci-name">SQL basics</div>
+            <div class="ci-meta">Reading</div>
+          </div>
+        </div>
+        <div class="course-item">
+          <div class="ci-check done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
+          <div class="ci-info">
+            <div class="ci-name">Indexing overview</div>
+            <div class="ci-meta">Video</div>
+          </div>
+        </div>
+        <div class="course-item">
+          <div class="ci-check done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
+          <div class="ci-info">
+            <div class="ci-name">Practice questions</div>
+            <div class="ci-meta">Reading</div>
+          </div>
+        </div>
+        <div class="course-item active">
+          <div class="ci-check active-circle"></div>
+          <div class="ci-info">
+            <div class="ci-name">Joins for multiple data sets</div>
+            <div class="ci-meta">Reading</div>
+          </div>
+        </div>
+        <div class="course-item">
+          <div class="ci-check pending"></div>
+          <div class="ci-info">
+            <div class="ci-name">Advanced data Assessment</div>
+            <div class="ci-meta">Reading</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="content-area">
+
+  <!-- Learning environment header -->
+  <div class="learning-env-header">
+    <h2 class="learning-env-title">Self-assessment</h2>
+  </div>
+
+  <!-- Questions -->
+  <div class="scroll-area" id="scroll-area">
+    <div class="questions-wrap" id="questions-wrap">
+
+      <!-- Q1 -->
+      <div class="question-block active" id="block-1" onclick="handleBlockClick(1)">
+        <div class="q-meta">
+          <div class="q-number">Question 1/3</div>
+          <div class="q-text">Can you write a SELECT statement and filter results with WHERE?</div>
+        </div>
+        <div class="option-group" id="q1-options">
+          <div class="option-row" onclick="selectOption(event, 1, this, 'I\'m new to this')">
+            <div class="radio-circle"><div class="radio-dot"></div></div>
+            <div class="option-text">
+              <div class="option-label">I'm new to this</div>
+              <div class="option-desc">I'm still figuring out the basic syntax.</div>
+            </div>
+          </div>
+          <div class="option-row" onclick="selectOption(event, 1, this, 'I\'ve seen this')">
+            <div class="radio-circle"><div class="radio-dot"></div></div>
+            <div class="option-text">
+              <div class="option-label">I've seen this</div>
+              <div class="option-desc">I can handle SELECT and WHERE, but a quick refresh wouldn't hurt.</div>
+            </div>
+          </div>
+          <div class="option-row" onclick="selectOption(event, 1, this, 'I know this well')">
+            <div class="radio-circle"><div class="radio-dot"></div></div>
+            <div class="option-text">
+              <div class="option-label">I know this well</div>
+              <div class="option-desc">I'm a pro at basics. Skip the intro and let's get to work.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Q2 -->
+      <div class="question-block" id="block-2" onclick="handleBlockClick(2)">
+        <div class="q-meta">
+          <div class="q-number">Question 2/3</div>
+          <div class="q-text">Can you use JOIN to combine data from multiple tables?</div>
+        </div>
+        <div class="option-group" id="q2-options">
+          <div class="option-row" onclick="selectOption(event, 2, this, 'I\'m new to this')">
+            <div class="radio-circle"><div class="radio-dot"></div></div>
+            <div class="option-text">
+              <div class="option-label">I'm new to this</div>
+              <div class="option-desc">I haven't worked with JOINs before.</div>
+            </div>
+          </div>
+          <div class="option-row" onclick="selectOption(event, 2, this, 'I\'ve seen this')">
+            <div class="radio-circle"><div class="radio-dot"></div></div>
+            <div class="option-text">
+              <div class="option-label">I've seen this</div>
+              <div class="option-desc">I've used basic JOINs but could use a refresher.</div>
+            </div>
+          </div>
+          <div class="option-row" onclick="selectOption(event, 2, this, 'I know this well')">
+            <div class="radio-circle"><div class="radio-dot"></div></div>
+            <div class="option-text">
+              <div class="option-label">I know this well</div>
+              <div class="option-desc">I'm comfortable with INNER, LEFT, and other JOIN types.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Q3 -->
+      <div class="question-block" id="block-3" onclick="handleBlockClick(3)">
+        <div class="q-meta">
+          <div class="q-number">Question 3/3</div>
+          <div class="q-text">Can you use GROUP BY and aggregate functions like COUNT or SUM?</div>
+        </div>
+        <div class="option-group" id="q3-options">
+          <div class="option-row" onclick="selectOption(event, 3, this, 'I\'m new to this')">
+            <div class="radio-circle"><div class="radio-dot"></div></div>
+            <div class="option-text">
+              <div class="option-label">I'm new to this</div>
+              <div class="option-desc">Aggregation is new territory for me.</div>
+            </div>
+          </div>
+          <div class="option-row" onclick="selectOption(event, 3, this, 'I\'ve seen this')">
+            <div class="radio-circle"><div class="radio-dot"></div></div>
+            <div class="option-text">
+              <div class="option-label">I've seen this</div>
+              <div class="option-desc">I've seen GROUP BY but don't use it confidently.</div>
+            </div>
+          </div>
+          <div class="option-row" onclick="selectOption(event, 3, this, 'I know this well')">
+            <div class="radio-circle"><div class="radio-dot"></div></div>
+            <div class="option-text">
+              <div class="option-label">I know this well</div>
+              <div class="option-desc">I write aggregate queries regularly.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Completion actions — shown inline after Q3 once all answered -->
+      <div class="completion-actions" id="completion-actions">
+        <button class="btn-personalize" onclick="personalizeCourse()">Start my personalized course</button>
+        <button class="btn-edit" onclick="editAnswers()">Edit responses</button>
+      </div>
+
+    </div><!-- /.questions-wrap -->
+  </div><!-- /.scroll-area -->
+    </div><!-- /.content-area -->
+  </div><!-- /.page-body -->
+
+</div>
+
+<script>
+  const answers = { 1: null, 2: null, 3: null };
+  let activeQuestion = 1;
+
+  /* ── Reliably scroll any block to the vertical center of the scroll area ── */
+  function scrollBlockToCenter(blockEl, smooth) {
+    const scrollArea = document.getElementById('scroll-area');
+    const aRect = scrollArea.getBoundingClientRect();
+    const bRect = blockEl.getBoundingClientRect();
+    const delta = bRect.top - aRect.top - (aRect.height - bRect.height) / 2;
+    scrollArea.scrollBy({ top: delta, behavior: smooth ? 'smooth' : 'instant' });
+  }
+
+  /* ── On load: ensure enough padding, then snap Q1 to center ── */
+  window.addEventListener('DOMContentLoaded', () => {
+    function applyPaddingAndCenter() {
+      const scrollArea = document.getElementById('scroll-area');
+      const block1     = document.getElementById('block-1');
+      const wrap       = document.getElementById('questions-wrap');
+
+      const scrollH = scrollArea.clientHeight || 680;
+      const block1H = block1.offsetHeight     || 280;
+
+      // Generous padding so any card can always reach the center
+      wrap.style.paddingTop    = Math.max(100, Math.floor((scrollH - block1H) / 2)) + 'px';
+      wrap.style.paddingBottom = Math.ceil(scrollH * 1.5) + 'px';
+
+      // Double rAF: let the browser apply the new padding before we measure + scroll
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        scrollBlockToCenter(block1, false); // instant — no animation on first load
+      }));
+    }
+
+    applyPaddingAndCenter();
+    window.addEventListener('load', applyPaddingAndCenter);
+  });
+
+  /* ── Make a question active and center it ── */
+  function setActiveQuestion(qNum, shouldScroll = true) {
+    activeQuestion = qNum;
+    for (let i = 1; i <= 3; i++) {
+      const block = document.getElementById(`block-${i}`);
+      block.classList.toggle('active', i === qNum);
+      block.style.opacity = '';
+    }
+    if (shouldScroll) {
+      // Small delay so the active class (and any layout change) is painted first
+      setTimeout(() => scrollBlockToCenter(document.getElementById(`block-${qNum}`), true), 60);
+    }
+  }
+
+  /* ── Click on a non-active question → activate it, recenter, show all options ── */
+  function handleBlockClick(qNum) {
+    const block = document.getElementById(`block-${qNum}`);
+    if (block.classList.contains('active')) return;
+
+    /* If the user is re-editing after seeing the completion CTAs, hide them
+       while they pick a new answer. They'll come back once allDone is true again. */
+    document.getElementById('completion-actions').classList.remove('visible');
+
+    setActiveQuestion(qNum, true);
+  }
+
+  /* ── Select an option ── */
+  function selectOption(event, qNum, el, val) {
+    event.stopPropagation();
+
+    // Deselect siblings, select clicked row + play flash
+    document.getElementById(`q${qNum}-options`)
+      .querySelectorAll('.option-row').forEach(r => r.classList.remove('selected', 'selecting'));
+    el.classList.add('selected', 'selecting');
+    el.addEventListener('animationend', () => el.classList.remove('selecting'), { once: true });
+    answers[qNum] = val;
+
+    // Mark card as answered → CSS will show only the selected option when inactive
+    document.getElementById(`block-${qNum}`).classList.add('answered');
+
+    const PAUSE = 480;
+    const allDone = answers[1] && answers[2] && answers[3];
+
+    if (allDone) {
+      setTimeout(() => {
+        for (let i = 1; i <= 3; i++) {
+          document.getElementById(`block-${i}`).classList.remove('active');
+        }
+        document.getElementById('completion-actions').classList.add('visible');
+      }, PAUSE);
+    } else {
+      const nextQ = findNextUnanswered(qNum);
+      if (nextQ) {
+        setTimeout(() => setActiveQuestion(nextQ, true), PAUSE);
+      }
+    }
+  }
+
+  /* ── Find next unanswered question ── */
+  function findNextUnanswered(currentQ) {
+    for (let i = currentQ + 1; i <= 3; i++) { if (!answers[i]) return i; }
+    for (let i = 1; i < currentQ; i++)       { if (!answers[i]) return i; }
+    return null;
+  }
+
+  /* ── Edit: clear all answers and restart from Q1 ── */
+  function editAnswers() {
+    for (let i = 1; i <= 3; i++) {
+      const block = document.getElementById(`block-${i}`);
+      block.classList.remove('answered');
+      block.style.opacity = '';
+      document.getElementById(`q${i}-options`)
+        .querySelectorAll('.option-row').forEach(r => r.classList.remove('selected'));
+      answers[i] = null;
+    }
+    document.getElementById('completion-actions').classList.remove('visible');
+    setActiveQuestion(1, true);
+  }
+
+  /* ── Personalize: go to one-pager ── */
+  function personalizeCourse() {
+    window.location.href = 'course-one-pager.html';
+  }
+</script>
+
+</body>
+</html>

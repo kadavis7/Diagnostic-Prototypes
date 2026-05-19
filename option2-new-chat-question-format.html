@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Option 2 – New Chat Question Format</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --primary:    #0F1114;
+      --content:    #1e2229;
+      --weak:       #5b6780;
+      --muted:      #636363;
+      --border:     #dae1ed;
+      --border-kbd: #c1cad9;
+      --blue:       #3587fc;
+      --blue-bg:    #f0f6ff;
+      --neutral:    #f2f5fa;
+      --white:      #ffffff;
+      --font:       'Source Sans 3', sans-serif;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; }
+    body {
+      font-family: var(--font);
+      background: var(--white);
+      display: flex; flex-direction: column;
+    }
+
+    .shell {
+      flex: 1; width: 100%; height: 100%;
+      background: var(--white);
+      display: flex; flex-direction: column;
+      overflow: hidden; position: relative;
+    }
+
+    .page-body { flex: 1; display: flex; flex-direction: row; min-height: 0; overflow: hidden; }
+    .sidebar {
+      width: 44px; flex-shrink: 0;
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      align-items: center; padding-top: 8px;
+      background: var(--white);
+    }
+    .sidebar-toggle {
+      width: 32px; height: 32px; border-radius: 6px; border: none;
+      background: transparent; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--weak); transition: background .15s;
+    }
+    .sidebar-toggle:hover { background: var(--neutral); }
+    .sidebar-toggle svg { width: 18px; height: 18px; }
+    .content-area { flex: 1; display: flex; flex-direction: column; min-height: 0; overflow: hidden; position: relative; }
+
+    /* ── Coursera Navigation Bar ── */
+    .coursera-nav {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 16px; height: 48px;
+      border-bottom: 1px solid var(--border); flex-shrink: 0;
+      background: var(--white);
+    }
+    .coursera-nav-left { display: flex; align-items: center; gap: 8px; }
+    .coursera-wordmark { font-size: 18px; font-weight: 700; color: #0056D2; letter-spacing: -0.4px; }
+    .nav-partner-sep { color: #bcc5d6; font-size: 18px; font-weight: 300; margin: 0 2px; }
+    .google-wordmark { font-size: 16px; font-weight: 500; }
+    .coursera-nav-right { display: flex; align-items: center; gap: 2px; }
+    .nav-icon-btn {
+      width: 34px; height: 34px; border-radius: 8px; border: none;
+      background: transparent; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--weak); transition: background .15s;
+    }
+    .nav-icon-btn:hover { background: var(--neutral); }
+    .nav-icon-btn svg { width: 18px; height: 18px; }
+    .user-avatar-btn {
+      width: 30px; height: 30px; border-radius: 50%;
+      background: #1e2229; color: white; border: none; cursor: pointer;
+      font-family: var(--font); font-size: 13px; font-weight: 600;
+      display: flex; align-items: center; justify-content: center;
+      margin-left: 4px;
+    }
+
+    /* ─── Chat ─── */
+    .chat-area { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+
+    .chat-scroll {
+      flex: 1; padding: 32px 0 24px;
+      display: flex; flex-direction: column; align-items: center;
+      overflow-y: auto;
+    }
+    .chat-inner {
+      width: 640px; max-width: 100%;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+
+    @keyframes msgIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .msg { opacity: 0; }
+    .msg.show { animation: msgIn .35s ease forwards; }
+
+    .user-row { display: flex; justify-content: flex-end; padding: 4px 0 12px; }
+    .user-bubble {
+      background: var(--blue-bg); padding: 9px 13px;
+      border-radius: 8px 8px 0 8px; font-size: 16px; line-height: 24px;
+      color: var(--primary); max-width: 460px;
+    }
+
+    .ai-row { padding: 8px 0; font-size: 16px; line-height: 24px; color: var(--content); }
+
+    .typing-indicator { display: flex; align-items: center; gap: 6px; padding: 8px 0; opacity: 0; }
+    .typing-indicator.show { animation: msgIn .3s ease forwards; }
+    @keyframes bounce { 0%,80%,100% { transform: scale(.7); opacity: .4; } 40% { transform: scale(1); opacity: 1; } }
+    .typing-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--weak); animation: bounce 1.2s infinite ease-in-out; }
+    .typing-dot:nth-child(2) { animation-delay: .2s; }
+    .typing-dot:nth-child(3) { animation-delay: .4s; }
+
+    /* ─── Accordion Card ─── */
+    .q-accordion-card {
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      margin: 8px auto;
+      max-width: 440px;
+      width: 100%;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity .45s ease, transform .45s ease;
+    }
+    .q-accordion-card.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .q-accordion-card.dismissing {
+      opacity: 0;
+      transform: translateY(-6px);
+      transition: opacity .28s ease, transform .28s ease;
+      pointer-events: none;
+    }
+
+    /* Item divider */
+    .q-item-divider { height: 1px; background: var(--border); flex-shrink: 0; }
+
+    /* ─── Animated section wrapper (CSS grid trick) ─── */
+    .q-sec {
+      display: grid;
+      grid-template-rows: 0fr;
+      transition: grid-template-rows .38s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .q-sec.open { grid-template-rows: 1fr; }
+    .q-sec > div { overflow: hidden; min-height: 0; }
+
+    /* ─── Expanded section (active question — white) ─── */
+    .q-exp-body { padding: 10px 0 4px; background: var(--white); }
+    .q-exp-hdr {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      padding: 0 14px 6px;
+    }
+    .q-exp-icon { width: 28px; height: 28px; flex-shrink: 0; }
+    .q-tag {
+      display: inline-flex; align-items: center;
+      background: transparent; color: var(--weak);
+      font-size: 10px; font-weight: 600; letter-spacing: .4px; text-transform: uppercase;
+      padding: 0; border-radius: 0;
+    }
+    .q-text {
+      font-size: 14px; font-weight: 700; line-height: 20px;
+      letter-spacing: -.05px; color: var(--primary);
+      padding: 0 14px 8px;
+    }
+    .q-opts { display: flex; flex-direction: column; }
+    .q-opt {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 6px 14px; cursor: pointer;
+      transition: background .12s;
+    }
+    .q-opt:hover { background: rgba(0,0,0,.04); }
+    .q-opt.selected { background: var(--blue-bg); }
+    .q-opt.selected .opt-label { color: var(--blue); }
+    .q-opt.selected .kbd-badge { background: var(--primary); color: white; border-color: var(--primary); }
+    .q-opt-div { height: 1px; background: var(--border); }
+    .kbd-badge {
+      width: 20px; height: 20px; flex-shrink: 0;
+      background: var(--white); border: 1.5px solid var(--border-kbd); border-radius: 5px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 600; color: var(--weak);
+      margin-top: 1px;
+      transition: background .12s, color .12s, border-color .12s;
+    }
+    .q-opt:hover .kbd-badge { border-color: #a0afc5; color: var(--primary); }
+    .opt-content { flex: 1; }
+    .opt-label { font-size: 13px; font-weight: 600; line-height: 18px; color: var(--primary); }
+    .opt-desc { font-size: 12px; line-height: 16px; color: var(--weak); margin-top: 1px; }
+    .q-opt.selected .opt-desc { color: #5080c8; }
+    .q-skip-row { display: flex; justify-content: center; padding: 4px 14px 8px; }
+    .btn-skip {
+      background: transparent; border: none;
+      font-family: var(--font); font-size: 12px; font-weight: 600;
+      color: var(--weak); padding: 4px 16px; border-radius: 100px;
+      cursor: pointer; transition: background .12s, color .12s;
+    }
+    .btn-skip:hover { background: var(--neutral); color: var(--primary); }
+
+    /* ─── Answered (collapsed) section — muted, clickable ─── */
+    .q-ans-body {
+      padding: 11px 14px 12px;
+      cursor: pointer;
+      background: #eef1f6;
+      transition: background .12s;
+    }
+    .q-ans-body:hover { background: #e6eaf2; }
+    .q-ans-q { font-size: 13px; font-weight: 600; line-height: 18px; color: #98a0b3; }
+    .q-ans-a {
+      display: flex; align-items: center; gap: 5px;
+      font-size: 12px; line-height: 17px; color: var(--weak);
+      margin-top: 2px;
+    }
+
+    /* Once all questions are answered & the CTA is showing, brighten rows */
+    .q-accordion-card.summary-mode .q-ans-body { background: #ffffff; }
+    .q-accordion-card.summary-mode .q-ans-body:hover { background: var(--neutral); }
+    .q-accordion-card.summary-mode .q-ans-q { color: var(--primary); }
+    .q-accordion-card.summary-mode .q-ans-a { color: var(--primary); }
+
+    /* ─── Pending section — muted, clickable ─── */
+    .q-pend-body {
+      padding: 12px 14px;
+      cursor: pointer;
+      background: #eef1f6;
+      transition: background .12s;
+    }
+    .q-pend-body:hover { background: #e6eaf2; }
+    .q-pend-q { font-size: 13px; font-weight: 600; line-height: 18px; color: #98a0b3; }
+
+    /* ─── Card Header Title — colored header, subtle text ─── */
+    .card-title-row {
+      padding: 12px 14px;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px;
+      background: #fbeaf4;
+      border-bottom: 1px solid var(--border);
+    }
+    .card-title-text-wrap {
+      display: flex; flex-direction: column; gap: 2px;
+      min-width: 0;
+    }
+    .card-title-text {
+      font-size: 15px; font-weight: 700; letter-spacing: -0.2px;
+      line-height: 20px;
+      color: var(--primary);
+    }
+    .card-question-counter {
+      font-size: 12px; font-weight: 400; letter-spacing: 0;
+      text-transform: none; color: var(--weak);
+      white-space: nowrap; flex-shrink: 0;
+      line-height: 16px;
+    }
+    .card-question-counter.hidden { display: none; }
+    .card-orbit-icon {
+      width: 36px; height: 36px; flex-shrink: 0;
+    }
+    .card-orbit-icon svg { width: 100%; height: 100%; display: block; }
+
+    /* ─── CTA footer (animated reveal) ─── */
+    .q-cta-sec {
+      display: grid;
+      grid-template-rows: 0fr;
+      transition: grid-template-rows .42s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .q-cta-sec.open { grid-template-rows: 1fr; }
+    .q-cta-sec > div { overflow: hidden; min-height: 0; }
+
+    .card-cta-footer {
+      display: flex; justify-content: flex-start; gap: 8px;
+      padding: 10px 14px 12px;
+      border-top: 1px solid var(--border);
+    }
+    .btn-confirm {
+      background: var(--blue); border: none;
+      font-family: var(--font); font-size: 13px; font-weight: 600;
+      color: white; padding: 7px 16px; border-radius: 6px;
+      cursor: pointer; transition: opacity .15s;
+    }
+    .btn-confirm:hover { opacity: .88; }
+    .btn-edit {
+      background: transparent; border: 1.5px solid var(--border);
+      font-family: var(--font); font-size: 13px; font-weight: 600;
+      color: var(--primary); padding: 7px 16px; border-radius: 6px;
+      cursor: pointer; transition: background .15s;
+    }
+    .btn-edit:hover { background: var(--neutral); }
+
+    /* ─── Composer ─── */
+    .composer-wrap {
+      border-top: 1px solid var(--border); padding: 14px 16px;
+      display: flex; justify-content: center; flex-shrink: 0;
+    }
+    .composer {
+      width: 660px; max-width: 100%; background: var(--neutral);
+      border-radius: 8px; padding: 10px 14px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .composer-input {
+      flex: 1; background: transparent; border: none; outline: none;
+      font-family: var(--font); font-size: 16px; color: var(--primary);
+    }
+    .composer-input::placeholder { color: var(--weak); }
+    .c-btn {
+      width: 32px; height: 32px; border-radius: 6px; border: none;
+      background: transparent; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; color: var(--weak);
+    }
+    .c-btn.primary { background: var(--blue); color: white; }
+    .c-btn svg { width: 16px; height: 16px; }
+
+    .chat-scroll::-webkit-scrollbar { width: 6px; }
+    .chat-scroll::-webkit-scrollbar-thumb { background: #d0d7e5; border-radius: 3px; }
+
+    /* ═══════════════════════════════════════════════════
+       COURSE CHROME — applied across all diagnostic options
+       so each prototype lives inside the shared course
+       outline + learning environment shell.
+       ═══════════════════════════════════════════════════ */
+    html, body { background: #eef0f4; }
+    .shell { background: #eef0f4; }
+
+    .coursera-nav {
+      height: 56px;
+      background: #ffffff;
+      border-bottom: 1px solid #dae1ed;
+      padding: 0 16px;
+    }
+    .coursera-wordmark { font-size: 20px; letter-spacing: -.5px; }
+
+    .page-body {
+      padding: 16px;
+      gap: 16px;
+      background: #eef0f4;
+    }
+
+    .sidebar {
+      width: 268px;
+      flex-shrink: 0;
+      background: #ffffff;
+      border: 1px solid #dae1ed;
+      border-right: 1px solid #dae1ed;
+      border-radius: 16px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      padding-top: 0;
+    }
+    .sidebar-header {
+      padding: 20px 20px 12px;
+      border-bottom: 1px solid #dae1ed;
+    }
+    .sidebar-course-title {
+      font-size: 16px; font-weight: 600; line-height: 22px;
+      color: #0F1114; margin-bottom: 6px;
+      letter-spacing: -0.04px;
+    }
+    .sidebar-progress-link {
+      font-size: 14px; font-weight: 600; color: #0056D2;
+      text-decoration: none; cursor: pointer;
+    }
+    .sidebar-progress-link:hover { text-decoration: underline; }
+
+    .today-block {
+      margin: 12px 12px 0;
+      background: #ffffff;
+      border: 1px solid #dae1ed;
+      border-radius: 10px;
+      padding: 12px 14px;
+    }
+    .today-block-header {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 13px; font-weight: 600; color: #0F1114;
+      margin-bottom: 2px;
+    }
+    .today-block-dot { color: #5b6780; }
+    .today-block-time { font-weight: 600; }
+    .today-block-sub {
+      font-size: 12px; color: #5b6780; line-height: 16px;
+    }
+
+    .sidebar-list {
+      flex: 1; overflow-y: auto; padding: 12px 0 16px;
+    }
+    .sidebar-list::-webkit-scrollbar { width: 4px; }
+    .sidebar-list::-webkit-scrollbar-thumb { background: #dae1ed; border-radius: 2px; }
+
+    .course-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 20px;
+      cursor: pointer; transition: background .12s;
+      position: relative;
+    }
+    .course-item:hover { background: #f2f5fa; }
+    .course-item.active { background: #eaf1fc; }
+    .course-item.active::before {
+      content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+      width: 3px; background: #0056D2;
+    }
+    .ci-check {
+      width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .ci-check.done { background: #095941; }
+    .ci-check.done svg { color: white; width: 11px; height: 11px; }
+    .ci-check.pending { background: #e8eef7; }
+    .ci-check.active-circle {
+      background: transparent;
+      border: 2px solid #0056D2;
+      box-sizing: border-box;
+    }
+    .ci-info { flex: 1; min-width: 0; }
+    .ci-name { font-size: 13px; font-weight: 400; color: #0F1114; line-height: 18px; }
+    .ci-meta { font-size: 12px; color: #636363; }
+
+    .content-area {
+      background: #ffffff;
+      border: 1px solid #dae1ed;
+      border-radius: 16px;
+      overflow: hidden;
+    }
+
+    .learning-env-header {
+      padding: 18px 24px 14px;
+      border-bottom: 1px solid #dae1ed;
+      background: #ffffff;
+      flex-shrink: 0;
+    }
+    .learning-env-title {
+      font-size: 18px; font-weight: 600;
+      color: #0F1114;
+      letter-spacing: -0.1px;
+      line-height: 24px;
+      margin: 0;
+    }
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- Coursera + Google Top Nav -->
+  <nav class="coursera-nav">
+    <div class="coursera-nav-left">
+      <span class="coursera-wordmark">coursera</span>
+      <span class="nav-partner-sep">|</span>
+      <span class="google-wordmark"><span style="color:#4285F4">G</span><span style="color:#EA4335">o</span><span style="color:#FBBC05">o</span><span style="color:#4285F4">g</span><span style="color:#34A853">l</span><span style="color:#EA4335">e</span></span>
+    </div>
+    <div class="coursera-nav-right">
+      <button class="nav-icon-btn" title="Help">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><circle cx="12" cy="17.5" r=".6" fill="currentColor"/></svg>
+      </button>
+      <button class="nav-icon-btn" title="Language">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+      </button>
+      <button class="nav-icon-btn" title="Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="8" cy="6" r="2" fill="white" stroke="currentColor" stroke-width="1.8"/><circle cx="16" cy="12" r="2" fill="white" stroke="currentColor" stroke-width="1.8"/><circle cx="10" cy="18" r="2" fill="white" stroke="currentColor" stroke-width="1.8"/></svg>
+      </button>
+      <button class="user-avatar-btn" title="Profile">N</button>
+    </div>
+  </nav>
+
+  <div class="page-body">
+
+    <!-- Course outline sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-course-title">SQL for Data Science (and Version Control with GitHub)</div>
+        <a class="sidebar-progress-link">Course progress</a>
+      </div>
+      <div class="today-block">
+        <div class="today-block-header">
+          Today's learning block
+          <span class="today-block-dot">•</span>
+          <span class="today-block-time">60 min</span>
+        </div>
+        <div class="today-block-sub">Diving deeper into databases and Jupyter Notebooks</div>
+      </div>
+      <div class="sidebar-list">
+        <div class="course-item">
+          <div class="ci-check done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
+          <div class="ci-info">
+            <div class="ci-name">Today's learning overview</div>
+            <div class="ci-meta">Video</div>
+          </div>
+        </div>
+        <div class="course-item">
+          <div class="ci-check done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
+          <div class="ci-info">
+            <div class="ci-name">Welcome to SQL for data science</div>
+            <div class="ci-meta">Video</div>
+          </div>
+        </div>
+        <div class="course-item">
+          <div class="ci-check done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
+          <div class="ci-info">
+            <div class="ci-name">SQL basics</div>
+            <div class="ci-meta">Reading</div>
+          </div>
+        </div>
+        <div class="course-item">
+          <div class="ci-check done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
+          <div class="ci-info">
+            <div class="ci-name">Indexing overview</div>
+            <div class="ci-meta">Video</div>
+          </div>
+        </div>
+        <div class="course-item">
+          <div class="ci-check done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
+          <div class="ci-info">
+            <div class="ci-name">Practice questions</div>
+            <div class="ci-meta">Reading</div>
+          </div>
+        </div>
+        <div class="course-item active">
+          <div class="ci-check active-circle"></div>
+          <div class="ci-info">
+            <div class="ci-name">Joins for multiple data sets</div>
+            <div class="ci-meta">Reading</div>
+          </div>
+        </div>
+        <div class="course-item">
+          <div class="ci-check pending"></div>
+          <div class="ci-info">
+            <div class="ci-name">Advanced data Assessment</div>
+            <div class="ci-meta">Reading</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="content-area">
+
+  <!-- Learning environment header -->
+  <div class="learning-env-header">
+    <h2 class="learning-env-title">Self-assessment</h2>
+  </div>
+
+  <div class="chat-area">
+    <div class="chat-scroll">
+      <div class="chat-inner" id="chat-inner">
+
+        <div class="msg user-row" id="msg-user">
+          <div class="user-bubble">I'm a PM and I only care about professional workflows. I can write simple queries, so let's fast-track through the basics and spend more time on GitHub and AI tools.</div>
+        </div>
+
+        <div class="typing-indicator msg" id="msg-typing">
+          <div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>
+        </div>
+
+        <div class="msg ai-row" id="msg-ai" style="display:none;">
+          Great! Answer a few quick questions to help us tailor this course to your level.
+        </div>
+
+        <!-- accordion injected by JS -->
+      </div>
+    </div>
+  </div>
+
+  <div class="composer-wrap">
+    <div class="composer">
+      <input class="composer-input" placeholder="Ask anything" type="text" />
+      <button class="c-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+      </button>
+      <button class="c-btn primary">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+      </button>
+    </div>
+  </div>
+    </div><!-- /.content-area -->
+  </div><!-- /.page-body -->
+
+</div>
+<script>
+  const questions = [
+    {
+      text: "Can you write a SELECT statement and filter results with WHERE?",
+      options: [
+        { label: "I'm new to this",   desc: "I'm still figuring out the basic syntax." },
+        { label: "I've seen this",    desc: "I can handle SELECT and WHERE, but a quick refresh wouldn't hurt." },
+        { label: "I know this well",  desc: "I'm a pro at basics. Skip the intro and let's get to work." }
+      ]
+    },
+    {
+      text: "Can you use JOIN to combine data from multiple tables?",
+      options: [
+        { label: "I'm new to this",   desc: "I haven't worked with JOINs before." },
+        { label: "I've seen this",    desc: "I've used basic JOINs but could use a refresher." },
+        { label: "I know this well",  desc: "I'm comfortable with INNER, LEFT, and other JOIN types." }
+      ]
+    },
+    {
+      text: "Can you use GROUP BY and aggregate functions like COUNT or SUM?",
+      options: [
+        { label: "I'm new to this",   desc: "Aggregation is new territory for me." },
+        { label: "I've seen this",    desc: "I've seen GROUP BY but don't use it confidently." },
+        { label: "I know this well",  desc: "I write aggregate queries regularly." }
+      ]
+    }
+  ];
+
+  const answers  = [null, null, null];
+  let currentQ   = 0;
+  let advancing  = false;
+  let accordion  = null;
+
+  const CHECK = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0">
+    <circle cx="7" cy="7" r="6.5" fill="#dcfce7" stroke="#86efac"/>
+    <polyline points="4.5,7 6.2,8.8 9.5,5" stroke="#16a34a" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`;
+
+  /* ─── Build the accordion card ─── */
+  function buildAccordion() {
+    const inner = document.getElementById('chat-inner');
+
+    accordion = document.createElement('div');
+    accordion.className = 'q-accordion-card';
+    accordion.id = 'q-accordion';
+
+    /* Title at the top, with question counter as a subtitle, plus an orbit icon */
+    const titleRow = document.createElement('div');
+    titleRow.className = 'card-title-row';
+    titleRow.innerHTML = `
+      <div class="card-title-text-wrap">
+        <div class="card-title-text">Your Skill Experience</div>
+        <div class="card-question-counter" id="card-question-counter">Question 1 of ${questions.length}</div>
+      </div>
+      <div class="card-orbit-icon" aria-hidden="true">
+        <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <g clip-path="url(#qi_clip)">
+            <path d="M37.0225 43.8186C41.9797 43.8186 45.9933 39.8244 45.9933 34.8912C45.9933 29.958 41.9797 25.9639 37.0225 25.9639C32.0653 25.9639 28.0518 29.958 28.0518 34.8912C28.0518 39.8244 32.0653 43.8186 37.0225 43.8186Z" fill="url(#qi_grad)"/>
+            <path d="M36.3996 31.584C36.4969 31.3457 36.8343 31.3457 36.9317 31.584L37.4589 32.8753C37.7508 33.5903 38.3181 34.1576 39.0331 34.4495L40.3244 34.9767C40.5627 35.074 40.5627 35.4115 40.3244 35.5088L39.0331 36.036C38.3181 36.3279 37.7508 36.8953 37.4589 37.6102L36.9317 38.9015C36.8343 39.1398 36.4969 39.1398 36.3996 38.9015L35.8724 37.6102C35.5805 36.8953 35.0131 36.3279 34.2982 36.036L33.0069 35.5088C32.7685 35.4115 32.7685 35.074 33.0069 34.9767L34.2982 34.4495C35.0131 34.1576 35.5805 33.5903 35.8724 32.8753L36.3996 31.584Z" fill="white"/>
+            <path d="M39.651 30.8119C39.7075 30.6734 39.9037 30.6734 39.9602 30.8119L40.2014 31.4026C40.258 31.5412 40.3679 31.6511 40.5064 31.7076L41.0972 31.9488C41.2357 32.0054 41.2357 32.2015 41.0972 32.2581L40.5064 32.4993C40.3679 32.5558 40.258 32.6658 40.2014 32.8043L39.9602 33.395C39.9037 33.5335 39.7075 33.5335 39.651 33.395L39.4098 32.8043C39.3532 32.6658 39.2433 32.5558 39.1048 32.4993L38.5141 32.2581C38.3755 32.2015 38.3755 32.0054 38.5141 31.9488L39.1048 31.7076C39.2433 31.6511 39.3532 31.5412 39.4098 31.4026L39.651 30.8119Z" fill="white"/>
+            <path d="M32.5432 10.4273L36.6286 14.5025C34.9196 12.7936 32.0983 12.207 28.5489 13.1374C21.4197 15.0081 14.0378 22.3598 12.1063 29.5192L8.021 25.444C9.95244 18.2845 17.3243 10.943 24.4635 9.06214C28.0028 8.13181 30.8343 8.71831 32.5432 10.4273Z" fill="#0F1114"/>
+            <path d="M13.4515 37.72L9.36622 33.6447C7.63702 31.9155 7.04037 29.0336 8.01115 25.4336L12.0965 29.5088C11.1257 33.1088 11.7122 35.9807 13.4515 37.72Z" fill="#A678F5"/>
+            <path d="M37.5376 5.43164L41.6229 9.50688C44.1004 11.9844 44.9499 16.1001 43.5544 21.2472L39.4691 17.172C40.8646 12.0147 40.0151 7.89903 37.5376 5.43164Z" fill="#0F1114"/>
+            <path d="M39.4556 17.1717C36.6949 27.4154 26.1276 37.9322 15.9243 40.6119C5.71096 43.2917 -0.346325 37.1434 2.42443 26.8997C5.18508 16.656 15.7423 6.14933 25.9557 3.45946C36.159 0.779715 42.2162 6.91786 39.4556 17.1616V17.1717ZM8.00642 25.4435C6.07498 32.5929 10.312 36.8906 17.4412 35.0198C24.5703 33.1491 31.9422 25.7975 33.8736 18.6481C35.805 11.4886 31.5781 7.19089 24.449 9.07177C17.3198 10.9425 9.93786 18.2942 8.00642 25.4536" fill="#FFA6EE"/>
+            <path d="M8.44471 42.7363L4.35938 38.6611C6.80654 41.1083 10.8616 41.9577 15.9278 40.6229C26.1311 37.9431 36.6883 27.4263 39.4591 17.1826L43.5444 21.2579C40.7837 31.5016 30.2164 42.0184 20.0131 44.6981C14.9368 46.0329 10.8919 45.1835 8.44471 42.7363Z" fill="#3587FC"/>
+            <path d="M11.9654 24.0247C16.9225 24.0247 20.9361 20.0305 20.9361 15.0973C20.9361 10.1641 16.9225 6.16992 11.9654 6.16992C7.00821 6.16992 2.99463 10.1641 2.99463 15.0973C2.99463 20.0305 7.00821 24.0247 11.9654 24.0247Z" fill="#FFC936"/>
+            <path d="M11.9565 18.5313C13.8546 18.5313 15.4157 16.9993 15.4157 15.0977C15.4157 13.196 13.8724 11.6641 11.9565 11.6641C10.0407 11.6641 8.51514 13.196 8.51514 15.0977C8.51514 16.9993 10.0585 18.5313 11.9565 18.5313Z" fill="#FFEF9F"/>
+          </g>
+          <defs>
+            <radialGradient id="qi_grad" cx="0" cy="0" r="1" gradientTransform="matrix(18.362 18.2732 -16.7073 16.6265 27.6313 25.5454)" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#6923DE"/>
+              <stop offset="1" stop-color="#3286FF"/>
+            </radialGradient>
+            <clipPath id="qi_clip"><rect width="48" height="48" fill="white"/></clipPath>
+          </defs>
+        </svg>
+      </div>
+    `;
+    accordion.appendChild(titleRow);
+
+    questions.forEach((q, i) => {
+      const div = document.createElement('div');
+      div.className = 'q-item-divider';
+      accordion.appendChild(div);
+
+      const item = document.createElement('div');
+      item.id = `qi-${i}`;
+
+      let optsHTML = q.options.map((opt, j) => `
+        <div class="q-opt" id="qo-${i}-${j}" onclick="pick(${i},${j})">
+          <div class="kbd-badge">${j + 1}</div>
+          <div class="opt-content">
+            <div class="opt-label">${opt.label}</div>
+            <div class="opt-desc">${opt.desc}</div>
+          </div>
+        </div>
+        ${j < q.options.length - 1 ? '<div class="q-opt-div"></div>' : ''}
+      `).join('');
+
+      /* Each item has three sections animated via CSS grid rows.
+         Initial state: i=0 → expanded open; i>0 → pending open */
+      item.innerHTML = `
+        <div class="q-sec ${i === 0 ? 'open' : ''}" id="qs-exp-${i}">
+          <div>
+            <div class="q-exp-body">
+              <div class="q-text">${q.text}</div>
+              <div class="q-opts" id="qopts-${i}">${optsHTML}</div>
+            </div>
+          </div>
+        </div>
+        <div class="q-sec" id="qs-ans-${i}">
+          <div>
+            <div class="q-ans-body" onclick="expandQ(${i})">
+              <div class="q-ans-q">${q.text}</div>
+              <div class="q-ans-a" id="qa-text-${i}"><span></span></div>
+            </div>
+          </div>
+        </div>
+        <div class="q-sec ${i > 0 ? 'open' : ''}" id="qs-pend-${i}">
+          <div>
+            <div class="q-pend-body" onclick="expandQ(${i})">
+              <div class="q-pend-q">${q.text}</div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      accordion.appendChild(item);
+    });
+
+    /* CTA footer — hidden until all questions answered */
+    const ctaSec = document.createElement('div');
+    ctaSec.className = 'q-cta-sec';
+    ctaSec.id = 'q-cta-sec';
+    ctaSec.innerHTML = `
+      <div>
+        <div class="card-cta-footer">
+          <button class="btn-confirm" onclick="confirmAnswers()">Get started</button>
+          <button class="btn-edit" onclick="editAnswers()">Edit</button>
+        </div>
+      </div>
+    `;
+    accordion.appendChild(ctaSec);
+
+    inner.appendChild(accordion);
+
+    /* Fade card in */
+    requestAnimationFrame(() => {
+      accordion.classList.add('visible');
+      setTimeout(scrollDown, 120);
+    });
+  }
+
+  function scrollDown() {
+    const s = document.querySelector('.chat-scroll');
+    s.scrollTo({ top: s.scrollHeight, behavior: 'smooth' });
+  }
+
+  /* ─── Handle a selection ─── */
+  function pick(qIdx, optIdx) {
+    if (advancing || qIdx !== currentQ) return;
+    advancing = true;
+    answers[qIdx] = optIdx;
+
+    /* Clear any previous selection on this question so re-answering works */
+    document.querySelectorAll(`#qopts-${qIdx} .q-opt`).forEach(o => o.classList.remove('selected'));
+
+    /* Highlight chosen option */
+    if (optIdx >= 0) {
+      document.getElementById(`qo-${qIdx}-${optIdx}`).classList.add('selected');
+      document.querySelector(`#qa-text-${qIdx} span`).textContent =
+        questions[qIdx].options[optIdx].desc;
+    } else {
+      const el = document.getElementById(`qa-text-${qIdx}`);
+      el.innerHTML = `<span style="font-style:italic;color:var(--muted)">Skipped</span>`;
+    }
+
+    /* Short confirmation pause, then animate */
+    setTimeout(() => {
+      /* Collapse expanded → answered */
+      document.getElementById(`qs-exp-${qIdx}`).classList.remove('open');
+      document.getElementById(`qs-ans-${qIdx}`).classList.add('open');
+
+      /* Find next unanswered question (supports both forward and re-answer flows) */
+      let nextQ = -1;
+      for (let i = 0; i < questions.length; i++) {
+        if (answers[i] === null) { nextQ = i; break; }
+      }
+
+      const counter = document.getElementById('card-question-counter');
+
+      if (nextQ !== -1) {
+        /* Stagger: expand next pending question just after collapse starts */
+        setTimeout(() => {
+          currentQ = nextQ;
+          /* Close whichever collapsed view is currently showing for that q */
+          if (answers[currentQ] !== null) {
+            document.getElementById(`qs-ans-${currentQ}`).classList.remove('open');
+          } else {
+            document.getElementById(`qs-pend-${currentQ}`).classList.remove('open');
+          }
+          document.getElementById(`qs-exp-${currentQ}`).classList.add('open');
+          if (counter) {
+            counter.classList.remove('hidden');
+            counter.textContent = `Question ${currentQ + 1} of ${questions.length}`;
+          }
+          advancing = false;
+          setTimeout(scrollDown, 260);
+        }, 100);
+      } else {
+        /* All done — hide the counter, the summary CTA takes over */
+        if (counter) counter.classList.add('hidden');
+        advancing = false;
+        setTimeout(showSummary, 600);
+      }
+    }, 260);
+  }
+
+  /* ─── Click an inactive (collapsed) question to expand it ─── */
+  function expandQ(qIdx) {
+    if (advancing || qIdx === currentQ) return;
+    advancing = true;
+
+    /* If the CTA was shown, collapse it — we're back in editing mode */
+    document.getElementById('q-cta-sec').classList.remove('open');
+    accordion.classList.remove('summary-mode');
+
+    /* Collapse the currently expanded question to its appropriate state */
+    document.getElementById(`qs-exp-${currentQ}`).classList.remove('open');
+    if (answers[currentQ] !== null) {
+      document.getElementById(`qs-ans-${currentQ}`).classList.add('open');
+    } else {
+      document.getElementById(`qs-pend-${currentQ}`).classList.add('open');
+    }
+
+    /* After the collapse starts, expand the clicked question */
+    setTimeout(() => {
+      if (answers[qIdx] !== null) {
+        document.getElementById(`qs-ans-${qIdx}`).classList.remove('open');
+      } else {
+        document.getElementById(`qs-pend-${qIdx}`).classList.remove('open');
+      }
+      document.getElementById(`qs-exp-${qIdx}`).classList.add('open');
+
+      currentQ = qIdx;
+
+      const counter = document.getElementById('card-question-counter');
+      if (counter) {
+        counter.classList.remove('hidden');
+        counter.textContent = `Question ${qIdx + 1} of ${questions.length}`;
+      }
+
+      advancing = false;
+      setTimeout(scrollDown, 260);
+    }, 100);
+  }
+
+  /* ─── Reveal CTAs inline (no card replacement) ─── */
+  function showSummary() {
+    /* Small stagger after the last question collapses, then open the CTA footer */
+    setTimeout(() => {
+      document.getElementById('q-cta-sec').classList.add('open');
+      accordion.classList.add('summary-mode');
+      setTimeout(scrollDown, 260);
+    }, 180);
+  }
+
+  /* ─── Edit — hide CTAs and restore accordion questions ─── */
+  function editAnswers() {
+    /* Collapse the CTA footer */
+    document.getElementById('q-cta-sec').classList.remove('open');
+    accordion.classList.remove('summary-mode');
+
+    /* Reset state */
+    answers.fill(null);
+    currentQ = 0;
+    advancing = false;
+
+    /* Restore the question counter in the top header */
+    const counter = document.getElementById('card-question-counter');
+    if (counter) {
+      counter.classList.remove('hidden');
+      counter.textContent = `Question 1 of ${questions.length}`;
+    }
+
+    /* Wipe all option selection + handlers */
+    questions.forEach((q, i) => {
+      q.options.forEach((_, j) => {
+        const o = document.getElementById(`qo-${i}-${j}`);
+        if (!o) return;
+        o.classList.remove('selected');
+        o.style.cursor = '';
+        const ci = i, cj = j;
+        o.onclick = () => pick(ci, cj);
+      });
+      const at = document.getElementById(`qa-text-${i}`);
+      if (at) at.innerHTML = `<span></span>`;
+    });
+
+    /* Set initial section open/closed states without animation */
+    document.querySelectorAll('.q-sec').forEach(el => {
+      el.style.transition = 'none';
+      el.classList.remove('open');
+    });
+    accordion.offsetHeight; /* force reflow */
+    document.getElementById('qs-exp-0').classList.add('open');
+    document.getElementById('qs-pend-1').classList.add('open');
+    document.getElementById('qs-pend-2').classList.add('open');
+
+    /* Re-enable transitions next frame */
+    requestAnimationFrame(() => {
+      document.querySelectorAll('.q-sec').forEach(el => { el.style.transition = ''; });
+    });
+
+    accordion.style.display = '';
+    accordion.classList.remove('dismissing');
+    requestAnimationFrame(() => accordion.classList.add('visible'));
+  }
+
+  /* ─── Confirm → navigate ─── */
+  function confirmAnswers() {
+    document.querySelector('.card-cta-footer').innerHTML = `
+      <span style="font-size:14px;color:var(--weak);display:flex;align-items:center;gap:7px;padding:6px 0;">
+        ${CHECK} Personalizing your course…
+      </span>
+    `;
+    setTimeout(() => {
+      const shell = document.querySelector('.shell');
+      shell.style.transition = 'opacity .45s ease, transform .45s ease';
+      shell.style.opacity = '0';
+      shell.style.transform = 'scale(.98)';
+      setTimeout(() => { window.location.href = 'course-one-pager.html'; }, 460);
+    }, 700);
+  }
+
+  /* ─── Intro sequence ─── */
+  function runIntro() {
+    setTimeout(() => document.getElementById('msg-user').classList.add('show'), 700);
+    setTimeout(() => document.getElementById('msg-typing').classList.add('show'), 1400);
+    setTimeout(() => {
+      document.getElementById('msg-typing').style.display = 'none';
+      const ai = document.getElementById('msg-ai');
+      ai.style.display = 'block';
+      ai.classList.add('show');
+    }, 2700);
+
+    /* Brief second typing pulse before accordion fades in */
+    setTimeout(() => {
+      const pulse = document.createElement('div');
+      pulse.className = 'typing-indicator';
+      pulse.style.cssText = 'opacity:0;transition:opacity .25s ease';
+      pulse.innerHTML = '<div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>';
+      document.getElementById('chat-inner').appendChild(pulse);
+      requestAnimationFrame(() => { pulse.style.opacity = '1'; });
+
+      setTimeout(() => {
+        pulse.style.opacity = '0';
+        setTimeout(() => { pulse.remove(); buildAccordion(); }, 250);
+      }, 900);
+    }, 3400);
+  }
+
+  /* Start only when the parent launcher sends 'start' (tab click / restore) */
+  let _introStarted = false;
+  window.addEventListener('message', (e) => {
+    if (e.data === 'start' && !_introStarted) {
+      _introStarted = true;
+      runIntro();
+    }
+  });
+</script>
+</body>
+</html>
