@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Diagnostic Questionnaire – Prototype Comparison</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --color-primary:    #0F1114;
+      --color-weak:       #5b6780;
+      --color-border:     #dae1ed;
+      --color-blue:       #3587fc;
+      --color-blue-bg:    #e8f2ff;
+      --color-neutral-bg: #f2f5fa;
+      --color-white:      #ffffff;
+      --toolbar-h:        72px;
+      --font:             'Source Sans 3', sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%; width: 100%;
+      font-family: var(--font);
+      background: #f0f2f5;
+      overflow: hidden;
+    }
+
+    /* ── Viewport ── */
+    .viewport {
+      position: fixed;
+      inset: 0 0 var(--toolbar-h) 0;
+      background: #f0f2f5;
+    }
+
+    /* Each iframe fills the viewport */
+    .proto-frame {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: none;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .22s ease;
+    }
+    .proto-frame.active {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    /* ── Toolbar ── */
+    .toolbar {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: var(--toolbar-h);
+      background: var(--color-white);
+      border-top: 1px solid var(--color-border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 0 20px;
+      z-index: 100;
+      box-shadow: 0 -2px 12px rgba(0,0,0,.06);
+    }
+
+    /* Tab button */
+    .tab {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      padding: 8px 18px;
+      border-radius: 10px;
+      border: 1.5px solid transparent;
+      background: transparent;
+      cursor: pointer;
+      font-family: var(--font);
+      color: var(--color-weak);
+      transition: background .15s, border-color .15s, color .15s;
+      white-space: nowrap;
+      min-width: 160px;
+    }
+    .tab:hover {
+      background: var(--color-neutral-bg);
+      color: var(--color-primary);
+    }
+    .tab.active {
+      background: var(--color-blue-bg);
+      border-color: var(--color-blue);
+      color: var(--color-blue);
+    }
+
+    .tab-label {
+      font-size: 13px;
+      font-weight: 600;
+      line-height: 18px;
+      letter-spacing: -0.02px;
+    }
+    .tab-desc {
+      font-size: 11px;
+      font-weight: 400;
+      line-height: 14px;
+      opacity: .8;
+    }
+    .tab.active .tab-desc { opacity: 1; }
+
+    /* Pill indicator on active tab */
+    .tab-indicator {
+      display: none;
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--color-blue);
+      position: absolute;
+      top: 6px;
+    }
+    .tab.active .tab-indicator { display: block; }
+    .tab { position: relative; }
+
+    /* Divider between tabs */
+    .tab-divider {
+      width: 1px; height: 32px;
+      background: var(--color-border);
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Prototype iframes -->
+  <div class="viewport">
+    <iframe class="proto-frame active" id="frame-1" src="option1-keep-chat-update-response.html" title="Option 1"></iframe>
+    <iframe class="proto-frame"        id="frame-2" src="option2-new-chat-question-format.html"  title="Option 2"></iframe>
+    <iframe class="proto-frame"        id="frame-3" src="option3-in-chat-card.html"               title="Option 3"></iframe>
+    <iframe class="proto-frame"        id="frame-5" src="option5-quiz-all-at-once.html"           title="Option 5"></iframe>
+  </div>
+
+  <!-- Toolbar -->
+  <nav class="toolbar" role="tablist">
+
+    <button class="tab active" role="tab" aria-selected="true"  onclick="show(1)" id="tab-1">
+      <div class="tab-indicator"></div>
+      <span class="tab-label">Option 1</span>
+      <span class="tab-desc">Keep Chat, Update Response</span>
+    </button>
+
+    <div class="tab-divider"></div>
+
+    <button class="tab" role="tab" aria-selected="false" onclick="show(2)" id="tab-2">
+      <div class="tab-indicator"></div>
+      <span class="tab-label">Option 2</span>
+      <span class="tab-desc">New Chat Question Format</span>
+    </button>
+
+    <div class="tab-divider"></div>
+
+    <button class="tab" role="tab" aria-selected="false" onclick="show(3)" id="tab-3">
+      <div class="tab-indicator"></div>
+      <span class="tab-label">Option 3</span>
+      <span class="tab-desc">In-Chat Card</span>
+    </button>
+
+    <div class="tab-divider"></div>
+
+    <button class="tab" role="tab" aria-selected="false" onclick="show(5)" id="tab-5">
+      <div class="tab-indicator"></div>
+      <span class="tab-label">Option 5</span>
+      <span class="tab-desc">Quiz — All at Once</span>
+    </button>
+
+  </nav>
+
+  <script>
+    const frameLoaded  = {1:false, 2:false, 3:false, 5:false};
+    const frameStarted = {1:false, 2:false, 3:false, 5:false};
+
+    /* Send 'start' to a frame only once, only when it's loaded and active */
+    function startIfReady(n) {
+      if (frameLoaded[n] && !frameStarted[n] && n === current) {
+        document.getElementById(`frame-${n}`).contentWindow.postMessage('start', '*');
+        frameStarted[n] = true;
+      }
+    }
+
+    /* Listen for each iframe to finish loading */
+    [1,2,3,5].forEach(n => {
+      document.getElementById(`frame-${n}`).addEventListener('load', () => {
+        frameLoaded[n] = true;
+        startIfReady(n);
+      });
+    });
+
+    /* Restore last active tab from localStorage (default: 1) */
+    let current = parseInt(localStorage.getItem('proto-active-tab') || '1');
+
+    /* If the saved tab no longer exists (e.g. removed option), fall back to 1 */
+    if (!document.getElementById(`tab-${current}`)) {
+      current = 1;
+      localStorage.setItem('proto-active-tab', 1);
+    }
+
+    /* Apply initial active state (HTML defaults to tab-1 active) */
+    if (current !== 1) {
+      document.getElementById('frame-1').classList.remove('active');
+      document.getElementById('tab-1').classList.remove('active');
+      document.getElementById('tab-1').setAttribute('aria-selected', 'false');
+      document.getElementById(`frame-${current}`).classList.add('active');
+      document.getElementById(`tab-${current}`).classList.add('active');
+      document.getElementById(`tab-${current}`).setAttribute('aria-selected', 'true');
+    }
+
+    function show(n) {
+      if (n === current) return;
+
+      /* Deactivate current */
+      document.getElementById(`frame-${current}`).classList.remove('active');
+      document.getElementById(`tab-${current}`).classList.remove('active');
+      document.getElementById(`tab-${current}`).setAttribute('aria-selected', 'false');
+
+      /* Activate new */
+      current = n;
+      localStorage.setItem('proto-active-tab', n);
+      document.getElementById(`frame-${current}`).classList.add('active');
+      document.getElementById(`tab-${current}`).classList.add('active');
+      document.getElementById(`tab-${current}`).setAttribute('aria-selected', 'true');
+
+      /* Trigger intro animation on first visit */
+      startIfReady(n);
+    }
+
+    /* Keyboard: 1–5 to switch tabs */
+    document.addEventListener('keydown', (e) => {
+      if (['1','2','3','5'].includes(e.key) && e.target.tagName !== 'INPUT') {
+        show(parseInt(e.key));
+      }
+    });
+  </script>
+
+</body>
+</html>
