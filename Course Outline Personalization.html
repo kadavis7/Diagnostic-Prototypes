@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Course Outline Personalization</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --primary:        #0F1114;
+      --content:        #1e2229;
+      --weak:           #5b6780;
+      --muted:          #636363;
+      --border:         #dae1ed;
+      --border-strong:  #8495b0;
+      --blue:           #0056D2;
+      --blue-hover:     #0044a8;
+      --blue-bg:        #f0f6ff;
+      --blue-soft:      #eaf2ff;
+      --neutral:        #f2f5fa;
+      --disabled:       #e8eef7;
+      --check-done:     #2a8052;
+      --check-done-bg:  #e6f4ec;
+      --accent-purple:  #6F4FF2;
+      --accent-glow:    rgba(111, 79, 242, 0.18);
+      --white:          #ffffff;
+      --font:           'Source Sans 3', -apple-system, BlinkMacSystemFont, sans-serif;
+      --ease:           cubic-bezier(0.22, 1, 0.36, 1);
+      --ease-soft:      cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      font-family: var(--font);
+      background: #f6f8fb;
+      color: var(--primary);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Coursera Top Nav ── */
+    .coursera-nav {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 20px; height: 56px;
+      border-bottom: 1px solid var(--border); flex-shrink: 0;
+      background: var(--white);
+    }
+    .coursera-nav-left { display: flex; align-items: center; gap: 16px; }
+    .coursera-wordmark { font-size: 19px; font-weight: 700; color: var(--blue); letter-spacing: -0.4px; }
+    .nav-sep { width: 1px; height: 20px; background: var(--border); }
+    .nav-crumb { font-size: 14px; color: var(--weak); }
+    .nav-crumb strong { color: var(--primary); font-weight: 600; }
+    .coursera-nav-right { display: flex; align-items: center; gap: 8px; }
+    .nav-icon-btn {
+      width: 34px; height: 34px; border-radius: 8px; border: none;
+      background: transparent; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--weak); transition: background .15s;
+    }
+    .nav-icon-btn:hover { background: var(--neutral); }
+    .nav-icon-btn svg { width: 18px; height: 18px; }
+    .user-avatar {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: linear-gradient(135deg, #6F4FF2 0%, #2a6de8 100%);
+      color: white; border: none;
+      font-size: 13px; font-weight: 600;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    /* ── Page Body: panel + main content ── */
+    .page-body {
+      flex: 1; display: flex; min-height: 0;
+      background: #f6f8fb;
+      padding: 16px;
+      gap: 16px;
+    }
+
+    /* ── Left Panel (course outline) ── */
+    .panel {
+      width: 380px; flex-shrink: 0;
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      display: flex; flex-direction: column;
+      overflow: hidden;
+      position: relative;
+      box-shadow: 0 1px 2px rgba(15, 17, 20, 0.04);
+    }
+
+    /* Panel header */
+    .panel-header {
+      padding: 24px 20px 12px;
+      flex-shrink: 0;
+      position: relative;
+    }
+    .panel-close {
+      position: absolute; top: 20px; right: 16px;
+      width: 32px; height: 32px; border-radius: 8px; border: none;
+      background: transparent; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--weak); transition: background .15s;
+    }
+    .panel-close:hover { background: var(--neutral); }
+    .course-title {
+      font-size: 19px; font-weight: 600; line-height: 24px;
+      color: var(--primary); letter-spacing: -0.2px;
+      padding-right: 36px;
+      margin-bottom: 4px;
+    }
+    .progress-link {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 14px; font-weight: 500; color: var(--blue);
+      cursor: pointer; padding: 4px 0;
+      transition: color .15s;
+    }
+    .progress-link:hover { color: var(--blue-hover); }
+    .progress-link svg { width: 12px; height: 12px; }
+
+    /* ── Today's learning block card ── */
+    .learning-block {
+      margin: 12px 16px 20px;
+      padding: 14px 76px 14px 16px;       /* right padding leaves room for the cube */
+      border: 1px solid var(--border-strong);
+      border-radius: 10px;
+      position: relative;
+      background: var(--white);
+      transition: background .4s var(--ease), border-color .4s var(--ease);
+    }
+    .lb-content { min-width: 0; }
+
+    .block-title-row {
+      display: flex; align-items: center; gap: 8px;
+      margin-bottom: 4px;
+    }
+    .block-title {
+      font-size: 14px; font-weight: 700; color: var(--primary);
+      letter-spacing: -0.05px;
+    }
+    .block-sub {
+      font-size: 12px; color: var(--primary); line-height: 18px;
+    }
+
+    /* Personalize text link below the sub */
+    .lb-personalize-link {
+      display: inline-block;
+      margin-top: 8px;
+      color: var(--blue);
+      font-size: 13px; font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: color .15s;
+    }
+    .lb-personalize-link:hover { color: var(--blue-hover); text-decoration: underline; }
+    .lb-personalize-link:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 2px; border-radius: 3px;
+    }
+
+    /* 3D cube illustration on the right */
+    .block-illustration {
+      position: absolute;
+      top: 50%; right: 14px;
+      transform: translateY(-50%);
+      width: 52px; height: 52px;
+      pointer-events: none;
+      opacity: .95;
+    }
+
+    /* State swap: default vs confirming */
+    .lb-confirming { display: none; }
+    .learning-block.confirming .lb-default    { display: none; }
+    .learning-block.confirming .lb-confirming { display: block; }
+
+    /* Confirmation state styling — mint green */
+    .learning-block.confirming {
+      background: #e8f5ed;
+      border-color: #a5d6ba;
+    }
+    .learning-block.confirming .block-title {
+      color: #0d5a2e;
+    }
+    .learning-block.confirming .block-sub {
+      color: #1f3a26;
+    }
+
+    /* Dismiss X — hidden by default, shown in confirming state */
+    .lb-dismiss {
+      position: absolute;
+      top: 6px; right: 6px;
+      width: 28px; height: 28px;
+      display: none;
+      align-items: center; justify-content: center;
+      border-radius: 6px;
+      background: transparent; border: none; cursor: pointer;
+      color: #4a6e54;
+      transition: background .15s, color .15s;
+      z-index: 2;
+    }
+    .lb-dismiss svg { width: 14px; height: 14px; }
+    .lb-dismiss:hover { background: rgba(13, 90, 46, 0.1); color: #0d5a2e; }
+    .learning-block.confirming .lb-dismiss { display: flex; }
+
+    /* Hide the cube illustration when confirming so the X has room.
+       (If you want to keep it, comment this rule out — but the X would overlap.) */
+    .learning-block.confirming .block-illustration {
+      top: auto; bottom: 12px;
+      transform: none;
+      width: 44px; height: 44px;
+      opacity: .9;
+    }
+
+    /* Soft entrance for the confirming swap */
+    .learning-block.confirming {
+      animation: confirmEnter .5s var(--ease);
+    }
+    @keyframes confirmEnter {
+      from { background: var(--white); border-color: var(--border-strong); }
+    }
+
+    /* ── Lessons list ── */
+    .lessons-wrap {
+      flex: 1; min-height: 0; overflow-y: auto;
+      padding: 0 16px 20px;
+    }
+    .lessons-wrap::-webkit-scrollbar { width: 4px; }
+    .lessons-wrap::-webkit-scrollbar-thumb { background: #d0d7e5; border-radius: 2px; }
+
+    .lessons-list {
+      display: flex; flex-direction: column;
+      /* gap replaced by per-lesson margin-bottom so the gap collapses with the item */
+    }
+
+    .lesson {
+      display: flex; align-items: center; gap: 12px;
+      padding: 9px 8px;
+      border-radius: 6px;
+      cursor: pointer;
+      position: relative;
+      margin-bottom: 4px;
+      max-height: 120px;          /* explicit ceiling so transitions can compute a delta */
+      transition: background .25s var(--ease), opacity .35s var(--ease);
+    }
+    .lesson:last-child { margin-bottom: 0; }
+    .lesson:hover { background: var(--neutral); }
+    .lesson.active { background: var(--blue-bg); }
+    .lesson.active::before {
+      content: ''; position: absolute; left: 0; top: 8px; bottom: 8px;
+      width: 3px; border-radius: 0 2px 2px 0;
+      background: var(--blue);
+    }
+    .lesson-check {
+      width: 20px; height: 20px; border-radius: 50%;
+      background: var(--disabled);
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      transition: background .25s var(--ease);
+    }
+    .lesson-check svg { width: 12px; height: 12px; color: transparent; }
+    .lesson.done .lesson-check { background: var(--check-done-bg); }
+    .lesson.done .lesson-check svg { color: var(--check-done); }
+    .lesson-body {
+      flex: 1; min-width: 0;
+      display: flex; flex-direction: column;
+    }
+    .lesson-name {
+      font-size: 14px; font-weight: 400; color: var(--primary);
+      line-height: 18px;
+    }
+    .lesson-meta {
+      font-size: 14px; color: var(--muted); line-height: 20px;
+    }
+    .lesson-tag {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 11px; font-weight: 600;
+      padding: 2px 7px; border-radius: 100px;
+      background: rgba(111, 79, 242, 0.1); color: var(--accent-purple);
+      margin-left: 6px; line-height: 16px;
+      animation: tagIn .4s var(--ease) both;
+    }
+    @keyframes tagIn {
+      from { opacity: 0; transform: scale(.85); }
+      to   { opacity: 1; transform: scale(1); }
+    }
+
+    /* Pop-in animation for newly-inserted lessons (Generated Practice + SQL Fundamentals).
+       Starts collapsed (height/opacity 0), grows to full size — items below push down.
+       Generous timing so the merge reads as a single graceful motion. */
+    .lesson.popping-in {
+      max-height: 0;
+      padding-top: 0;
+      padding-bottom: 0;
+      margin-bottom: 0;
+      opacity: 0;
+      overflow: hidden;
+    }
+    .lesson.popping-in.in {
+      max-height: 120px;
+      padding-top: 9px;
+      padding-bottom: 9px;
+      margin-bottom: 4px;
+      opacity: 1;
+      /* Height/padding/margin transition together; opacity follows slightly behind */
+      transition: max-height .85s cubic-bezier(0.4, 0, 0.2, 1),
+                  padding    .85s cubic-bezier(0.4, 0, 0.2, 1),
+                  margin     .85s cubic-bezier(0.4, 0, 0.2, 1),
+                  opacity    .7s  cubic-bezier(0.4, 0, 0.2, 1) .15s;
+    }
+    .lesson.popping-in.in:last-child { margin-bottom: 0; }
+
+    /* Collapse animation — runs simultaneously with the pop-in of SQL Fundamentals.
+       Opacity transitions slightly slower than height so content stays visible
+       while the box shrinks — reads as "items being absorbed" rather than vanishing. */
+    .lesson.collapsing {
+      max-height: 0 !important;
+      padding-top: 0 !important;
+      padding-bottom: 0 !important;
+      margin-bottom: 0 !important;
+      opacity: 0 !important;
+      overflow: hidden;
+      pointer-events: none;
+      transition: max-height .85s cubic-bezier(0.4, 0, 0.2, 1),
+                  padding    .85s cubic-bezier(0.4, 0, 0.2, 1),
+                  margin     .85s cubic-bezier(0.4, 0, 0.2, 1),
+                  opacity    .75s cubic-bezier(0.4, 0, 0.2, 1) .05s;
+    }
+
+    /* "Why this lesson?" tooltip */
+    .why-pop {
+      position: absolute; left: 8px; right: 8px; top: calc(100% - 4px);
+      background: var(--primary); color: white;
+      padding: 10px 12px; border-radius: 8px;
+      font-size: 12px; line-height: 16px;
+      box-shadow: 0 8px 24px rgba(15, 17, 20, 0.2);
+      opacity: 0; transform: translateY(-4px);
+      pointer-events: none;
+      z-index: 5;
+      transition: opacity .2s var(--ease), transform .2s var(--ease);
+    }
+    .why-pop::before {
+      content: ''; position: absolute; top: -5px; left: 16px;
+      width: 10px; height: 10px; background: var(--primary);
+      transform: rotate(45deg);
+    }
+    .lesson.personalized:hover .why-pop {
+      opacity: 1; transform: translateY(2px);
+      pointer-events: all;
+    }
+    .why-label { color: #ffb8a0; font-weight: 600; font-size: 11px; letter-spacing: .3px; text-transform: uppercase; display: block; margin-bottom: 4px; }
+
+    /* (Top confirmation banner styles removed — the confirmation now lives
+       inside the learning block via the .confirming state.) */
+
+    /* (Assessment overlay removed — Personalize now triggers loading directly.) */
+    /* Loading state */
+    .loading-overlay {
+      position: absolute; inset: 0;
+      background: rgba(255,255,255,0.98);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      z-index: 20;
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity .35s var(--ease), visibility .35s var(--ease);
+    }
+    .loading-overlay.show { opacity: 1; visibility: visible; pointer-events: all; }
+    .loading-icon-wrap {
+      position: relative;
+      width: 64px; height: 64px;
+      margin-bottom: 16px;
+    }
+    .loading-orb {
+      position: absolute; inset: 0;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent-purple), #4a7bff);
+      box-shadow: 0 0 32px var(--accent-glow);
+      animation: orbPulse 1.6s var(--ease-soft) infinite;
+    }
+    @keyframes orbPulse {
+      0%, 100% { transform: scale(.85); box-shadow: 0 0 24px var(--accent-glow); }
+      50%      { transform: scale(1);   box-shadow: 0 0 40px rgba(111, 79, 242, 0.35); }
+    }
+    .loading-ring {
+      position: absolute; inset: -8px;
+      border-radius: 50%;
+      border: 2px solid var(--accent-purple);
+      border-top-color: transparent;
+      animation: ringSpin 1.2s linear infinite;
+      opacity: .4;
+    }
+    @keyframes ringSpin { to { transform: rotate(360deg); } }
+    .loading-text {
+      font-size: 15px; font-weight: 600; color: var(--primary);
+      margin-bottom: 4px;
+    }
+    .loading-sub {
+      font-size: 13px; color: var(--muted);
+      max-width: 240px; text-align: center;
+    }
+    .loading-dots { display: inline-block; }
+    .loading-dots::after {
+      content: '\2026'; animation: dots 1.4s infinite steps(4, end);
+      display: inline-block; overflow: hidden; vertical-align: bottom;
+      width: 0; letter-spacing: 2px;
+    }
+    @keyframes dots { to { width: 1em; } }
+
+    /* ── Right side (lesson placeholder) ── */
+    .main-content {
+      flex: 1; min-width: 0;
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px;
+      display: flex; flex-direction: column; gap: 20px;
+      overflow-y: auto;
+      box-shadow: 0 1px 2px rgba(15, 17, 20, 0.04);
+    }
+    .mc-eyebrow {
+      font-size: 12px; font-weight: 600; color: var(--accent-purple);
+      letter-spacing: .8px; text-transform: uppercase;
+    }
+    .mc-title {
+      font-size: 28px; font-weight: 700; color: var(--primary);
+      letter-spacing: -0.4px; line-height: 36px;
+    }
+    .mc-meta {
+      display: flex; align-items: center; gap: 12px;
+      font-size: 14px; color: var(--muted);
+    }
+    .mc-meta-item { display: inline-flex; align-items: center; gap: 6px; }
+    .mc-meta-item svg { width: 14px; height: 14px; }
+    .video-frame {
+      aspect-ratio: 16 / 9;
+      background: linear-gradient(135deg, #1e2229 0%, #3a4250 100%);
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      color: rgba(255,255,255,0.6);
+      position: relative;
+      overflow: hidden;
+    }
+    .video-frame::after {
+      content: ''; position: absolute; inset: 0;
+      background: radial-gradient(circle at 30% 30%, rgba(111, 79, 242, 0.15), transparent 60%),
+                  radial-gradient(circle at 70% 70%, rgba(74, 123, 255, 0.15), transparent 60%);
+    }
+    .play-btn {
+      width: 64px; height: 64px; border-radius: 50%;
+      background: rgba(255,255,255,0.15);
+      backdrop-filter: blur(6px);
+      border: 1.5px solid rgba(255,255,255,0.3);
+      display: flex; align-items: center; justify-content: center;
+      color: white; z-index: 1;
+      transition: transform .25s var(--ease), background .15s;
+      cursor: pointer;
+    }
+    .play-btn:hover { transform: scale(1.08); background: rgba(255,255,255,0.22); }
+    .play-btn svg { width: 24px; height: 24px; margin-left: 3px; }
+
+    .mc-body {
+      font-size: 15px; color: var(--content); line-height: 22px;
+      max-width: 720px;
+    }
+    .mc-body p { margin-bottom: 12px; }
+
+    /* Sparkle icon next to AI-generated / summary lessons */
+    .lesson-sparkle {
+      display: inline-flex; align-items: center;
+      width: 13px; height: 13px;
+      margin-left: 6px;
+      color: var(--blue);
+      vertical-align: -1px;
+      animation: sparkleTwinkle 2.4s ease-in-out infinite;
+    }
+    @keyframes sparkleTwinkle {
+      0%, 100% { opacity: 1;   transform: scale(1); }
+      50%      { opacity: .65; transform: scale(.92); }
+    }
+
+    /* Persistent highlight on newly added/changed lessons.
+       Auto-fades 2s after the choreography completes. */
+    .lesson.highlight {
+      background: var(--blue-bg);
+      box-shadow: inset 0 0 0 1px rgba(53, 135, 252, 0.18);
+      transition: background .8s cubic-bezier(0.4, 0, 0.2, 1),
+                  box-shadow .8s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .lesson.highlight:hover { background: #e6efff; }
+    /* When the .lessons-list is told to clear highlights, transition fades them out. */
+    .lessons-list.no-highlight .lesson.highlight {
+      background: transparent;
+      box-shadow: none;
+    }
+
+    /* Subtle entrance animation for newly added lessons (above the highlight) */
+    @keyframes lessonPop {
+      from { transform: scale(.98); }
+      to   { transform: scale(1); }
+    }
+    .lesson.highlight.in { animation: lessonPop .35s var(--ease); }
+
+    /* Reduce motion */
+    @media (prefers-reduced-motion: reduce) {
+      * { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+    }
+
+    /* Mobile responsive */
+    @media (max-width: 900px) {
+      .main-content { display: none; }
+      .panel { width: 100%; }
+      .page-body { padding: 0; gap: 0; }
+      .panel { border-radius: 0; border: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── Top Nav ── -->
+  <nav class="coursera-nav">
+    <div class="coursera-nav-left">
+      <div class="coursera-wordmark">coursera</div>
+      <div class="nav-sep"></div>
+      <div class="nav-crumb">SQL for Data Science &nbsp;·&nbsp; <strong>Module 2</strong></div>
+    </div>
+    <div class="coursera-nav-right">
+      <button class="nav-icon-btn" aria-label="Search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      </button>
+      <button class="nav-icon-btn" aria-label="Notifications">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+      </button>
+      <div class="user-avatar">IK</div>
+    </div>
+  </nav>
+
+  <!-- ── Page Body ── -->
+  <div class="page-body">
+
+    <!-- ─── Left Panel: Course Outline ─── -->
+    <aside class="panel" id="panel">
+
+      <!-- Outline view -->
+      <div class="outline-view" id="outlineView">
+
+        <header class="panel-header">
+          <button class="panel-close" aria-label="Close panel">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+          </button>
+          <h1 class="course-title">SQL for Data Science (and Version Control with GitHub)</h1>
+          <a class="progress-link">
+            Course progress
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 18 6-6-6-6"/></svg>
+          </a>
+        </header>
+
+        <!-- Today's learning block (default + confirming states share this card) -->
+        <div class="learning-block" id="learningBlock">
+          <div class="lb-content">
+            <!-- Default state -->
+            <div class="lb-default">
+              <div class="block-title-row">
+                <span class="block-title">Today's learning block</span>
+              </div>
+              <div class="block-sub">Diving deeper into databases and Jupyter Notebooks</div>
+              <a class="lb-personalize-link" id="openAssessment" role="button" tabindex="0">Personalize this block</a>
+            </div>
+            <!-- Confirmation state (shown after personalization) -->
+            <div class="lb-confirming">
+              <div class="block-title-row">
+                <span class="block-title">Personalization complete!</span>
+              </div>
+              <div class="block-sub">We've added two practices and summarized the content you already know.</div>
+            </div>
+          </div>
+
+          <!-- 3D illustration stays in both states -->
+          <svg class="block-illustration" viewBox="0 0 56 56" fill="none" aria-hidden="true">
+            <defs>
+              <linearGradient id="lbg1" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#bba6ff"/>
+                <stop offset="1" stop-color="#7d5cf0"/>
+              </linearGradient>
+              <linearGradient id="lbg2" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#ffd96a"/>
+                <stop offset="1" stop-color="#ffb13d"/>
+              </linearGradient>
+            </defs>
+            <path d="M14 36 L28 28 L42 36 L28 44 Z" fill="url(#lbg1)" opacity=".95"/>
+            <path d="M14 36 L14 40 L28 48 L28 44 Z" fill="#5a3fc7"/>
+            <path d="M28 44 L28 48 L42 40 L42 36 Z" fill="#7d5cf0"/>
+            <circle cx="28" cy="22" r="6" fill="url(#lbg2)"/>
+            <circle cx="26" cy="20" r="2" fill="#fff7e0" opacity=".7"/>
+            <rect x="27" y="26" width="2" height="6" fill="#7d5cf0"/>
+          </svg>
+
+          <!-- Dismiss X — only visible in the confirming state -->
+          <button class="lb-dismiss" id="dismissConfirm" aria-label="Dismiss confirmation">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+          </button>
+        </div>
+
+        <!-- Lessons list -->
+        <div class="lessons-wrap">
+          <div class="lessons-list" id="lessonsList">
+            <!-- Lessons rendered by JS -->
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Loading overlay -->
+      <div class="loading-overlay" id="loadingOverlay" aria-live="polite">
+        <div class="loading-icon-wrap">
+          <div class="loading-ring"></div>
+          <div class="loading-orb"></div>
+        </div>
+        <div class="loading-text">Personalizing your path<span class="loading-dots"></span></div>
+        <div class="loading-sub">Tailoring lessons based on your check-in</div>
+      </div>
+
+    </aside>
+
+    <!-- ─── Right side: lesson placeholder ─── -->
+    <main class="main-content" id="mainContent">
+      <div class="mc-eyebrow">Module 2 · Lesson 1</div>
+      <h2 class="mc-title" id="mainTitle">Today's learning overview</h2>
+      <div class="mc-meta">
+        <span class="mc-meta-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          Video
+        </span>
+        <span class="mc-meta-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <span id="mainDuration">6 min</span>
+        </span>
+      </div>
+      <div class="video-frame">
+        <button class="play-btn" aria-label="Play video">
+          <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>
+        </button>
+      </div>
+      <div class="mc-body">
+        <p>Welcome to today's session. In this module we'll set up the foundations for analyzing data with SQL — from connecting to a database to running your first queries.</p>
+        <p>Tap <strong>"Personalize this block"</strong> on the left and we'll tailor today's outline to what you already know — adding targeted practice and summarizing material you can skim.</p>
+      </div>
+    </main>
+
+  </div>
+
+  <script>
+    // ────────────────────────────────────────────────────────────
+    // Lesson data
+    // ────────────────────────────────────────────────────────────
+    const DEFAULT_LESSONS = [
+      { id: 'overview',  name: "Today's learning overview",     type: 'Video',   active: true },
+      { id: 'welcome',   name: 'Welcome to SQL for data science', type: 'Video' },
+      { id: 'basics',    name: 'SQL basics',                    type: 'Reading' },
+      { id: 'indexing',  name: 'Indexing overview',             type: 'Video'   },
+      { id: 'practice',  name: 'Practice questions',            type: 'Reading' },
+      { id: 'assess',    name: 'Advanced data Assessment',      type: 'Reading' },
+    ];
+
+    // Lesson templates inserted during the personalization choreography
+    const PRACTICE_LESSON = (id) => ({
+      id, name: 'Generated Practice', type: 'Practice', sparkle: true, isNew: true,
+    });
+    const FUNDAMENTALS_LESSON = {
+      id: 'fundamentals', name: 'SQL Fundamentals',
+      type: 'Summary', summary: true, sparkle: true, isNew: true, summaryCount: 3,
+      active: true,
+    };
+
+    // ────────────────────────────────────────────────────────────
+    // State
+    // ────────────────────────────────────────────────────────────
+    const state = {
+      personalizing: false,   // guard against double-clicks
+      personalized: false,
+    };
+
+    // Highlight auto-fade: 2 seconds after the choreography completes.
+    const ANIM_DURATION_MS = 850;     // matches CSS pop-in / collapse transition
+    const PRE_ANIM_PAUSE_MS = 600;    // brief pause after loading ends
+    const HIGHLIGHT_HOLD_MS = 2000;   // user-visible hold before highlights fade
+    let highlightFadeTimer = null;
+
+    // ────────────────────────────────────────────────────────────
+    // Render helpers
+    // ────────────────────────────────────────────────────────────
+    const lessonsList = document.getElementById('lessonsList');
+
+    function lessonEl(lesson, idx) {
+      const el = document.createElement('div');
+      el.className = 'lesson';
+      if (lesson.id)      el.dataset.lessonId = lesson.id;
+      if (lesson.active)  el.classList.add('active');
+
+      // Check / summary glyph
+      const checkClass = lesson.summary ? 'lesson-check summary' : 'lesson-check';
+      const checkSvg = lesson.summary
+        ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color: inherit;"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h10"/></svg>`
+        : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 5 5 9-11"/></svg>`;
+
+      // Sparkle for AI-generated
+      const sparkleSvg = lesson.sparkle
+        ? `<svg class="lesson-sparkle" viewBox="0 0 24 24" fill="currentColor" aria-label="AI-generated">
+             <path d="M12 2.5 13.6 8.6 19.5 10.5 13.6 12.4 12 18.5 10.4 12.4 4.5 10.5 10.4 8.6Z"/>
+             <path d="M19 3 19.6 5 21.5 5.5 19.6 6 19 8 18.4 6 16.5 5.5 18.4 5Z" opacity=".7"/>
+           </svg>`
+        : '';
+
+      const metaText = lesson.summary && lesson.summaryCount
+        ? `${escapeHtml(lesson.type)} (${lesson.summaryCount} items)`
+        : escapeHtml(lesson.type);
+
+      el.innerHTML = `
+        <div class="${checkClass}">${checkSvg}</div>
+        <div class="lesson-body">
+          <div class="lesson-name">${escapeHtml(lesson.name)}${sparkleSvg}</div>
+          <div class="lesson-meta">${metaText}</div>
+        </div>
+      `;
+      return el;
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function renderDefault() {
+      lessonsList.innerHTML = '';
+      DEFAULT_LESSONS.forEach((l, i) => lessonsList.appendChild(lessonEl(l, i)));
+    }
+
+    // ────────────────────────────────────────────────────────────
+    // Personalization choreography (no questionnaire — direct to loading)
+    //
+    //   t+0      Loading overlay fades out, list is in default state.
+    //   t+600    SIMULTANEOUSLY trigger:
+    //              • SQL Fundamentals pops in at the top  (grow + fade in)
+    //              • Generated Practice #1 pops in after SQL basics
+    //              • Generated Practice #2 pops in after Adv. Assessment
+    //              • Top 3 originals (overview, welcome, basics) collapse
+    //            All 4 animations share an 850ms duration and the same
+    //            easing curve so the list visually MERGES rather than
+    //            disappearing-then-reappearing.
+    //   t+1450   Animations complete; collapsed originals are removed.
+    //   t+3450   Highlights auto-fade (2-second hold after merge).
+    // ────────────────────────────────────────────────────────────
+
+    // Restore the lesson list to the default 6-item state, clearing
+    // any leftover animation/highlight classes from a previous run.
+    function resetListToDefault() {
+      lessonsList.classList.remove('no-highlight');
+      lessonsList.innerHTML = '';
+      DEFAULT_LESSONS.forEach((l, i) => lessonsList.appendChild(lessonEl(l, i)));
+    }
+
+    // Helper: insert a lesson with the popping-in (grow + fade) animation.
+    function popInLesson(lessonData, anchorEl, position) {
+      const el = lessonEl(lessonData);
+      if (lessonData.isNew) el.classList.add('highlight');
+      el.classList.add('popping-in');
+
+      if (position === 'after')        anchorEl.after(el);
+      else if (position === 'before')  anchorEl.before(el);
+      else if (position === 'first')   lessonsList.insertBefore(el, lessonsList.firstChild);
+      else                             lessonsList.appendChild(el);
+
+      // Double rAF: ensure the popping-in initial state has painted before transitioning
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => el.classList.add('in'));
+      });
+
+      // After the transition, drop the choreography classes so the lesson
+      // returns to its natural styling (max-height etc no longer constrained).
+      setTimeout(() => {
+        el.classList.remove('popping-in', 'in');
+      }, ANIM_DURATION_MS + 100);
+      return el;
+    }
+
+    // Single simultaneous animation that:
+    //  - Inserts SQL Fundamentals at the top
+    //  - Inserts both Generated Practice items
+    //  - Collapses overview, welcome, basics
+    // All four animations begin in the same frame and share the same duration,
+    // so the visual reads as "the three items merge into Fundamentals while two
+    // new practice items grow into the outline."
+    function runMergeAnimation() {
+      const basicsEl  = lessonsList.querySelector('[data-lesson-id="basics"]');
+      const assessEl  = lessonsList.querySelector('[data-lesson-id="assess"]');
+
+      // Insert Generated Practice items at their final positions
+      if (basicsEl) popInLesson(PRACTICE_LESSON('gen-practice-1'), basicsEl, 'after');
+      if (assessEl) popInLesson(PRACTICE_LESSON('gen-practice-2'), assessEl, 'after');
+
+      // Insert SQL Fundamentals at the very top
+      popInLesson(FUNDAMENTALS_LESSON, null, 'first');
+
+      // Simultaneously collapse the three originals (they stay in the DOM
+      // during the animation so the layout transitions smoothly)
+      const ids = ['overview', 'welcome', 'basics'];
+      const toCollapse = ids
+        .map(id => lessonsList.querySelector(`[data-lesson-id="${id}"]`))
+        .filter(Boolean);
+      toCollapse.forEach(el => el.classList.add('collapsing'));
+
+      // Once the collapse finishes, remove the now-invisible items
+      setTimeout(() => toCollapse.forEach(el => el.remove()), ANIM_DURATION_MS + 50);
+    }
+
+    // ────────────────────────────────────────────────────────────
+    // DOM references
+    // ────────────────────────────────────────────────────────────
+    const loadingOverlay    = document.getElementById('loadingOverlay');
+    const dismissConfirmBtn = document.getElementById('dismissConfirm');
+    const openBtn           = document.getElementById('openAssessment');
+    const block             = document.getElementById('learningBlock');
+    const mainTitle         = document.getElementById('mainTitle');
+
+    // ────────────────────────────────────────────────────────────
+    // Click "Personalize this block" → go straight to loading,
+    // then run the merge animation.
+    // ────────────────────────────────────────────────────────────
+    function personalize() {
+      if (state.personalizing) return;
+      state.personalizing = true;
+
+      // Cancel any pending highlight fade from a previous run
+      if (highlightFadeTimer) { clearTimeout(highlightFadeTimer); highlightFadeTimer = null; }
+      lessonsList.classList.remove('no-highlight');
+
+      // Show loading overlay
+      loadingOverlay.classList.add('show');
+
+      // After ~2s of "thinking"…
+      setTimeout(() => {
+        loadingOverlay.classList.remove('show');
+
+        // Transform the learning block into the green confirmation state
+        // (force re-animate if it was already showing)
+        block.classList.remove('confirming');
+        void block.offsetWidth;
+        block.classList.add('confirming');
+
+        // Reset the list to the default 6 items so the animation always
+        // starts from the same baseline (even on re-personalization).
+        resetListToDefault();
+
+        // Brief pause so the user registers the original list, then merge
+        setTimeout(() => {
+          runMergeAnimation();
+
+          // Update right-side title to reflect the new active item
+          setTimeout(() => {
+            mainTitle.textContent = FUNDAMENTALS_LESSON.name;
+          }, ANIM_DURATION_MS);
+
+          // Auto-fade highlights 2s after the merge finishes
+          highlightFadeTimer = setTimeout(fadeOutHighlights,
+            ANIM_DURATION_MS + HIGHLIGHT_HOLD_MS);
+
+          state.personalizing = false;
+          state.personalized = true;
+        }, PRE_ANIM_PAUSE_MS);
+      }, 2000);
+    }
+
+    function fadeOutHighlights() {
+      lessonsList.classList.add('no-highlight');
+      // Once the CSS background fade finishes, remove the highlight class
+      // entirely so a future personalization can re-apply cleanly.
+      setTimeout(() => {
+        lessonsList.querySelectorAll('.lesson.highlight').forEach(el => el.classList.remove('highlight'));
+        lessonsList.classList.remove('no-highlight');
+      }, 850);
+    }
+
+    // Dismissing the green confirmation card no longer affects highlights —
+    // those auto-fade on their own 2 seconds after the merge.
+    function dismissConfirm() {
+      block.classList.remove('confirming');
+    }
+    dismissConfirmBtn.addEventListener('click', dismissConfirm);
+
+    // Personalize link → straight to loading + merge animation
+    openBtn.addEventListener('click', personalize);
+    openBtn.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); personalize(); }
+    });
+
+    // Initial render
+    renderDefault();
+  </script>
+</body>
+</html>
